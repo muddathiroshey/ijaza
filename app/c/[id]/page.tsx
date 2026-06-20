@@ -342,49 +342,57 @@ export default function StudentCertificatePage() {
                 }}
               />
 
-              {builderConfig.elements.map((el: any) => {
-                if (el.hidden) return null
-                
-                let textValue = el.text
-                if (el.type === 'field') {
-                  textValue = formData[el.key] || el.text
-                }
-
-                if (el.type === 'image') {
+              {/* Central flow document container */}
+              <div
+                className="absolute flex flex-col justify-center gap-2 text-right pointer-events-none"
+                style={{
+                  left: '12%',
+                  right: '12%',
+                  top: '12%',
+                  bottom: '12%',
+                  direction: 'rtl',
+                  zIndex: 2,
+                }}
+              >
+                {builderConfig.elements.filter((el: any) => el.type !== 'image' && !el.hidden).map((el: any) => {
+                  let textValue = el.text
+                  if (el.type === 'field') {
+                    textValue = formData[el.key] || el.text
+                  }
                   return (
                     <div
                       key={el.id}
-                      className="absolute flex items-center justify-center overflow-hidden"
                       style={{
-                        left: `${el.x}%`,
-                        top: `${el.y}%`,
-                        width: `${el.w}%`,
-                        height: `${el.h}%`,
-                        transform: 'translate(-50%, -50%)',
+                        fontFamily: el.font === 'Amiri' ? "'Amiri', serif" : "'Tajawal', sans-serif",
+                        fontSize: `${el.size}px`,
+                        fontWeight: el.weight || 400,
+                        color: el.color,
+                        textAlign: el.align || 'center',
+                        whiteSpace: 'pre-wrap',
                       }}
                     >
-                      {el.url && <img src={el.url} alt={el.label} className="w-full h-full object-contain pointer-events-none" />}
+                      {textValue}
                     </div>
                   )
-                }
+                })}
+              </div>
 
+              {/* Absolute Stamps and Signatures */}
+              {builderConfig.elements.filter((el: any) => el.type === 'image' && !el.hidden).map((el: any) => {
                 return (
                   <div
                     key={el.id}
-                    className="absolute pointer-events-none"
+                    className="absolute flex items-center justify-center overflow-hidden pointer-events-none"
                     style={{
                       left: `${el.x}%`,
                       top: `${el.y}%`,
+                      width: `${el.w}%`,
+                      height: `${el.h}%`,
                       transform: 'translate(-50%, -50%)',
-                      fontFamily: el.font === 'Amiri' ? "'Amiri', serif" : "'Tajawal', sans-serif",
-                      fontSize: `${el.size}px`,
-                      fontWeight: el.weight || 400,
-                      color: el.color,
-                      textAlign: el.align || 'center',
-                      whiteSpace: 'nowrap',
+                      zIndex: 10,
                     }}
                   >
-                    {textValue}
+                    {el.url && <img src={el.url} alt={el.label} className="w-full h-full object-contain pointer-events-none" />}
                   </div>
                 )
               })}

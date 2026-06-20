@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, forwardRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Certificate, FormField, Asset } from '@/lib/types'
@@ -31,7 +31,59 @@ import {
 import DateTimePickerModal, { MONTH_NAMES, getHour12 } from './DateTimePickerModal'
 
 
-/* ---------------------------------- عناصر زخرفية ---------------------------------- */
+/* ---------------------------------- BorderlessTextarea ---------------------------------- */
+
+interface BorderlessTextareaProps {
+  value: string
+  onChange: (val: string) => void
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
+  onFocus: () => void
+  style: React.CSSProperties
+  placeholder?: string
+  isActive: boolean
+}
+
+const BorderlessTextarea = forwardRef<HTMLTextAreaElement, BorderlessTextareaProps>((props, ref) => {
+  const localRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (typeof ref === 'function') {
+      ref(localRef.current)
+    } else if (ref) {
+      (ref as any).current = localRef.current
+    }
+  }, [ref])
+
+  useEffect(() => {
+    const textarea = localRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = `${textarea.scrollHeight}px`
+    }
+  }, [props.value])
+
+  return (
+    <textarea
+      ref={localRef}
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value)}
+      onKeyDown={props.onKeyDown}
+      onFocus={props.onFocus}
+      placeholder={props.placeholder}
+      rows={1}
+      dir="rtl"
+      className={`w-full bg-transparent border-none outline-none resize-none overflow-hidden p-1 rounded transition-all duration-150 ${
+        props.isActive ? 'bg-[#b8923a]/5 ring-1 ring-[#b8923a]/30' : 'hover:bg-black/[0.01]'
+      }`}
+      style={{
+        ...props.style,
+        display: 'block',
+        direction: 'rtl',
+      }}
+    />
+  )
+})
+BorderlessTextarea.displayName = 'BorderlessTextarea'
 
 
 /* ---------------------------------- القوالب الافتراضية ---------------------------------- */
@@ -301,6 +353,7 @@ export default function EditCertificatePage() {
   const canvasRef = useRef<HTMLDivElement>(null)
   const dragState = useRef<{ id: string; startX: number; startY: number; originX: number; originY: number } | null>(null)
   const idCounter = useRef(1)
+  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
 
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
 
@@ -373,6 +426,91 @@ export default function EditCertificatePage() {
   function deleteElement(elId: string) {
     setElements((prev) => prev.filter((it) => it.id !== elId))
     if (selectedId === elId) setSelectedId(null)
+  }
+
+  function handleTextChange(elId: string, value: string) {
+    setElements((prev) =>
+      prev.map((item) => {
+        if (item.id === elId) {
+          if (item.type === 'field') {
+            return { ...item, key: value }
+          }
+          return { ...item, text: value }
+        }
+        return item
+      })
+    )
+  }
+
+  function handleTextKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>, el: any, index: number) {
+    const textEls = elements.filter((item) => item.type !== 'image')
+    const currentTextIndex = textEls.findIndex((item) => item.id === el.id)
+
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const newId = `new-${idCounter.current++}`
+      const newEl = {
+        id: newId,
+        type: 'static',
+        text: '',
+        font: el.font || 'Tajawal',
+        size: el.size || 14,
+        weight: el.weight || 400,
+        color: el.color || '#1f2733',
+        align: el.align || 'center',
+      }
+
+      const elementIndexInMain = elements.findIndex((item) => item.id === el.id)
+      const newElements = [...elements]
+      newElements.splice(elementIndexInMain + 1, 0, newEl)
+      
+      setElements(newElements)
+      setSelectedId(newId)
+
+      setTimeout(() => {
+        textareaRefs.current[newId]?.focus()
+      }, 50)
+    }
+
+    if (e.key === 'Backspace') {
+      const val = e.currentTarget.value
+      if (val === '') {
+        e.preventDefault()
+        if (currentTextIndex > 0) {
+          const prevEl = textEls[currentTextIndex - 1]
+          
+          deleteElement(el.id)
+          setSelectedId(prevEl.id)
+          
+          setTimeout(() => {
+            const prevTextarea = textareaRefs.current[prevEl.id]
+            if (prevTextarea) {
+              prevTextarea.focus()
+              const len = prevTextarea.value.length
+              prevTextarea.setSelectionRange(len, len)
+            }
+          }, 50)
+        }
+      }
+    }
+
+    if (e.key === 'ArrowUp') {
+      if (currentTextIndex > 0) {
+        e.preventDefault()
+        const prevEl = textEls[currentTextIndex - 1]
+        setSelectedId(prevEl.id)
+        textareaRefs.current[prevEl.id]?.focus()
+      }
+    }
+
+    if (e.key === 'ArrowDown') {
+      if (currentTextIndex < textEls.length - 1) {
+        e.preventDefault()
+        const nextEl = textEls[currentTextIndex + 1]
+        setSelectedId(nextEl.id)
+        textareaRefs.current[nextEl.id]?.focus()
+      }
+    }
   }
 
   function addElement(type: 'static' | 'field' | 'image') {
@@ -681,73 +819,81 @@ export default function EditCertificatePage() {
                 }}
               />
 
-              {/* Elements Rendering */}
-              {elements.map((el) => {
-                const isSelected = selectedId === el.id
-                
-                if (el.type === 'image') {
-                  return (
-                    <div
-                      key={el.id}
-                      onMouseDown={(e) => handleElementMouseDown(e, el)}
-                      className={`image-slot ${isSelected ? 'selected' : ''} ${el.hidden ? 'hidden-el' : ''}`}
-                      style={{
-                        left: `${el.x}%`,
-                        top: `${el.y}%`,
-                        width: `${el.w}%`,
-                        height: `${el.h}%`,
-                      }}
-                    >
-                      {el.url ? (
-                        <img src={el.url} alt={el.label} className="w-full h-full object-contain pointer-events-none" />
-                      ) : (
-                        <>
-                          {el.label.includes('ختم') ? (
-                            <StampIcon size={20} style={{ color: 'var(--gold-main)' }} />
-                          ) : (
-                            <PenTool size={18} style={{ color: 'var(--gold-main)' }} />
-                          )}
-                          <span className="text-[8px] font-bold" style={{ color: '#9c7a1f' }}>
-                            {el.label}
-                          </span>
-                        </>
-                      )}
-                      
-                      {isSelected && (
-                        <>
-                          <span className="handle" style={{ top: -4, left: -4 }} />
-                          <span className="handle" style={{ top: -4, right: -4 }} />
-                          <span className="handle" style={{ bottom: -4, left: -4 }} />
-                          <span className="handle" style={{ bottom: -4, right: -4 }} />
-                        </>
-                      )}
-                    </div>
-                  )
-                }
-
-                return (
-                  <div
+              {/* Central flow document container */}
+              <div
+                className="absolute flex flex-col justify-center gap-2 text-right"
+                style={{
+                  left: '12%',
+                  right: '12%',
+                  top: '12%',
+                  bottom: '12%',
+                  direction: 'rtl',
+                  zIndex: 2,
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                {elements.filter(el => el.type !== 'image' && !el.hidden).map((el, idx) => (
+                  <BorderlessTextarea
                     key={el.id}
-                    onMouseDown={(e) => handleElementMouseDown(e, el)}
-                    className={`canvas-el ${el.type === 'field' ? 'field-box' : ''} ${isSelected ? 'selected' : ''} ${el.hidden ? 'hidden-el' : ''}`}
+                    ref={(ref) => {
+                      textareaRefs.current[el.id] = ref
+                    }}
+                    value={el.type === 'field' ? (selectedId === el.id ? el.key : `{{${el.key}}}`) : el.text}
+                    onChange={(val) => handleTextChange(el.id, val)}
+                    onKeyDown={(e) => handleTextKeyDown(e, el, idx)}
+                    onFocus={() => setSelectedId(el.id)}
+                    isActive={selectedId === el.id}
+                    placeholder={el.type === 'field' ? 'اسم الحقل...' : 'نص السطر...'}
                     style={{
-                      left: `${el.x}%`,
-                      top: `${el.y}%`,
                       fontFamily: el.font === 'Amiri' ? "'Amiri', serif" : "'Tajawal', sans-serif",
                       fontSize: `${el.size}px`,
                       fontWeight: el.weight || 400,
                       color: el.color,
                       textAlign: el.align || 'center',
                     }}
+                  />
+                ))}
+              </div>
+
+              {/* Draggable Stamps and Signatures */}
+              {elements.filter(el => el.type === 'image' && !el.hidden).map((el) => {
+                const isSelected = selectedId === el.id
+                return (
+                  <div
+                    key={el.id}
+                    onMouseDown={(e) => handleElementMouseDown(e, el)}
+                    className={`image-slot ${isSelected ? 'selected' : ''}`}
+                    style={{
+                      left: `${el.x}%`,
+                      top: `${el.y}%`,
+                      width: `${el.w}%`,
+                      height: `${el.h}%`,
+                      position: 'absolute',
+                      transform: 'translate(-50%, -50%)',
+                      zIndex: 10,
+                    }}
                   >
-                    {el.type === 'field' ? `{{${el.key}}}` : el.text}
+                    {el.url ? (
+                      <img src={el.url} alt={el.label} className="w-full h-full object-contain pointer-events-none" />
+                    ) : (
+                      <>
+                        {el.label.includes('ختم') ? (
+                          <StampIcon size={20} style={{ color: 'var(--gold-main)' }} />
+                        ) : (
+                          <PenTool size={18} style={{ color: 'var(--gold-main)' }} />
+                        )}
+                        <span className="text-[8px] font-bold" style={{ color: '#9c7a1f' }}>
+                          {el.label}
+                        </span>
+                      </>
+                    )}
                     
                     {isSelected && (
                       <>
-                        <span className="handle" style={{ top: -5, left: -5 }} />
-                        <span className="handle" style={{ top: -5, right: -5 }} />
-                        <span className="handle" style={{ bottom: -5, left: -5 }} />
-                        <span className="handle" style={{ bottom: -5, right: -5 }} />
+                        <span className="handle" style={{ top: -4, left: -4 }} />
+                        <span className="handle" style={{ top: -4, right: -4 }} />
+                        <span className="handle" style={{ bottom: -4, left: -4 }} />
+                        <span className="handle" style={{ bottom: -4, right: -4 }} />
                       </>
                     )}
                   </div>
