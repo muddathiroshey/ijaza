@@ -421,7 +421,7 @@ export default function StudentCertificatePage() {
     <div className="min-h-screen content-bg flex flex-col items-center justify-center p-4 py-12">
       <Watermark />
 
-      <div className="w-full max-w-[560px] flex flex-col gap-6 relative z-10">
+      <div className="w-full flex flex-col gap-6 relative z-10" style={{ maxWidth: '580px' }}>
         
         {/* ترويسة النموذج */}
         <div className="card-formal p-6 text-center" style={{ background: 'var(--bg-card)' }}>

@@ -533,25 +533,55 @@ export default function EditCertificatePage() {
         </div>
 
         {/* أزرار التبديل بين الإجازة والاستمارة */}
-        <div className="flex p-0.5 border rounded-lg bg-[#f7f2e7] gap-0.5" style={{ borderColor: 'var(--border-gold)' }}>
+        <div className="flex p-1 border bg-[#f7f2e7] gap-1" style={{ borderColor: 'var(--border-gold)', borderRadius: '30px' }}>
           <button
             type="button"
-            className={`px-4 py-1.5 text-xs font-bold transition-all rounded-md ${
-              viewMode === 'builder'
-                ? 'bg-white text-[#16243f] shadow-sm border border-[#e7ddc4]'
-                : 'text-[#6b6457] hover:text-[#16243f]'
-            }`}
+            className="text-xs font-bold transition-all"
+            style={{
+              borderRadius: '28px',
+              padding: '0.45rem 1.25rem',
+              cursor: 'pointer',
+              outline: 'none',
+              border: '1px solid transparent',
+              ...(viewMode === 'builder'
+                ? {
+                    background: '#fff',
+                    color: 'var(--navy-dark)',
+                    boxShadow: '0 2px 6px rgba(22, 36, 63, 0.08)',
+                    borderColor: 'var(--border-gold)'
+                  }
+                : {
+                    background: 'transparent',
+                    color: 'var(--text-muted)'
+                  }
+              )
+            }}
             onClick={() => setViewMode('builder')}
           >
             الإجازة
           </button>
           <button
             type="button"
-            className={`px-4 py-1.5 text-xs font-bold transition-all rounded-md ${
-              viewMode === 'form_editor'
-                ? 'bg-white text-[#16243f] shadow-sm border border-[#e7ddc4]'
-                : 'text-[#6b6457] hover:text-[#16243f]'
-            }`}
+            className="text-xs font-bold transition-all"
+            style={{
+              borderRadius: '28px',
+              padding: '0.45rem 1.25rem',
+              cursor: 'pointer',
+              outline: 'none',
+              border: '1px solid transparent',
+              ...(viewMode === 'form_editor'
+                ? {
+                    background: '#fff',
+                    color: 'var(--navy-dark)',
+                    boxShadow: '0 2px 6px rgba(22, 36, 63, 0.08)',
+                    borderColor: 'var(--border-gold)'
+                  }
+                : {
+                    background: 'transparent',
+                    color: 'var(--text-muted)'
+                  }
+              )
+            }}
             onClick={() => setViewMode('form_editor')}
           >
             الاستمارة
