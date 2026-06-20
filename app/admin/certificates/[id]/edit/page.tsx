@@ -23,6 +23,7 @@ import {
   Info,
   Palette,
   ChevronDown,
+  ChevronUp,
   Calendar,
 } from 'lucide-react'
 
@@ -91,6 +92,154 @@ export default function EditCertificatePage() {
   const [autoCloseEnabled, setAutoCloseEnabled] = useState(false)
   const [autoCloseAt, setAutoCloseAt] = useState('')
   const [showDatePicker, setShowDatePicker] = useState(false)
+
+  // Form Editor Settings
+  const [viewMode, setViewMode] = useState<'builder' | 'form_editor'>('builder')
+  const [formFields, setFormFields] = useState<FormField[]>([])
+  const [activeFieldId, setActiveFieldId] = useState<string | null>(null)
+
+  // Synchronize canvas field elements with formFields array
+  useEffect(() => {
+    const canvasFields = elements.filter((el) => el.type === 'field')
+
+    setFormFields((prev) => {
+      // 1. Remove deleted canvas fields (canvas fields are fields whose id does NOT start with 'extra-')
+      let updated = prev.filter((field) => {
+        const isCanvasField = !field.id.startsWith('extra-')
+        if (isCanvasField) {
+          const canvasEl = elements.find((el) => el.id === field.id)
+          return canvasEl && canvasEl.type === 'field'
+        }
+        return true
+      })
+
+      // 2. Update renamed canvas fields (keeping their relative position in the array)
+      updated = updated.map((field) => {
+        const canvasEl = canvasFields.find((el) => el.id === field.id)
+        if (canvasEl) {
+          if (field.variable !== canvasEl.key) {
+            return {
+              ...field,
+              label: field.label === field.variable ? canvasEl.key : field.label,
+              variable: canvasEl.key,
+            }
+          }
+        }
+        return field
+      })
+
+      // 3. Append any NEW canvas fields that are not in the list yet
+      canvasFields.forEach((el) => {
+        const exists = updated.some((f) => f.id === el.id)
+        if (!exists) {
+          updated.push({
+            id: el.id,
+            label: el.key,
+            type: el.key.includes('تاريخ') ? 'date' : 'text',
+            required: true,
+            variable: el.key,
+          })
+        }
+      })
+
+      return updated
+    })
+  }, [elements])
+
+  // Form Editor Helper Functions
+  function moveField(index: number, direction: 'up' | 'down') {
+    setFormFields((prev) => {
+      const copy = [...prev]
+      const targetIndex = direction === 'up' ? index - 1 : index + 1
+      if (targetIndex >= 0 && targetIndex < copy.length) {
+        const temp = copy[index]
+        copy[index] = copy[targetIndex]
+        copy[targetIndex] = temp
+      }
+      return copy
+    })
+  }
+
+  // Define dynamic key updates when label changes for extra fields
+  function updateAdditionalFieldLabel(fieldId: string, labelVal: string) {
+    setFormFields((prev) =>
+      prev.map((f) => {
+        if (f.id === fieldId) {
+          const patched: Partial<FormField> = { label: labelVal }
+          // If the variable key was not changed manually, auto-align it
+          if (f.variable.startsWith('extra_')) {
+            patched.variable = labelVal.trim() || f.variable
+          }
+          return { ...f, ...patched }
+        }
+        return f
+      })
+    )
+  }
+
+  function updateFormField(fieldId: string, patch: Partial<FormField>) {
+    setFormFields((prev) =>
+      prev.map((f) => (f.id === fieldId ? { ...f, ...patch } : f))
+    )
+  }
+
+  function addAdditionalField() {
+    const extraId = `extra-${Date.now()}`
+    const newField: FormField = {
+      id: extraId,
+      label: 'حقل إضافي جديد',
+      type: 'text',
+      required: false,
+      variable: `extra_${Date.now()}`,
+      placeholder: '',
+    }
+    setFormFields((prev) => [...prev, newField])
+    setActiveFieldId(extraId)
+  }
+
+  function deleteAdditionalField(fieldId: string) {
+    setFormFields((prev) => prev.filter((f) => f.id !== fieldId))
+    if (activeFieldId === fieldId) setActiveFieldId(null)
+  }
+
+  function updateOption(fieldId: string, optionIdx: number, val: string) {
+    setFormFields((prev) =>
+      prev.map((f) => {
+        if (f.id === fieldId) {
+          const opts = [...(f.options || ['الخيار الأول'])]
+          opts[optionIdx] = val
+          return { ...f, options: opts }
+        }
+        return f
+      })
+    )
+  }
+
+  function addOption(fieldId: string) {
+    setFormFields((prev) =>
+      prev.map((f) => {
+        if (f.id === fieldId) {
+          const opts = [...(f.options || ['الخيار الأول'])]
+          opts.push(`الخيار ${opts.length + 1}`)
+          return { ...f, options: opts }
+        }
+        return f
+      })
+    )
+  }
+
+  function removeOption(fieldId: string, optionIdx: number) {
+    setFormFields((prev) =>
+      prev.map((f) => {
+        if (f.id === fieldId) {
+          const opts = [...(f.options || ['الخيار الأول'])].filter((_, idx) => idx !== optionIdx)
+          return { ...f, options: opts.length > 0 ? opts : ['الخيار الأول'] }
+        }
+        return f
+      })
+    )
+  }
+
 
   // Helper to convert UTC ISO string to Mecca Time 'YYYY-MM-DDTHH:MM' string
   function utcToMeccaString(utcString: string): string {
@@ -189,6 +338,9 @@ export default function EditCertificatePage() {
         setAutoCloseEnabled(false)
         setAutoCloseAt('')
       }
+
+      // Initialize Form Fields
+      setFormFields(certData.form_fields || [])
     } catch {
       showToast('فشل تحميل بيانات الإجازة', 'error')
     } finally {
@@ -277,18 +429,7 @@ export default function EditCertificatePage() {
         orientation,
       })
 
-      // 2. Generate form fields list from elements of type === 'field'
-      const formFields: FormField[] = elements
-        .filter((el) => el.type === 'field')
-        .map((el) => ({
-          id: el.id,
-          label: el.key,
-          type: el.key.includes('تاريخ') ? 'date' : 'text',
-          required: true,
-          variable: el.key,
-        }))
-
-      // 3. Patch database record
+      // 2. Patch database record
       const res = await fetch(`/api/certificates/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -360,6 +501,32 @@ export default function EditCertificatePage() {
             style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'Amiri, serif' }}
           />
         </div>
+
+        {/* أزرار التبديل بين المصمم والاستمارة */}
+        <div className="flex border rounded-lg overflow-hidden bg-[#faf8f3]" style={{ borderColor: 'var(--border-gold)' }}>
+          <button
+            type="button"
+            className={`px-4 py-1.5 text-xs font-bold transition-all ${
+              viewMode === 'builder'
+                ? 'bg-[#16243f] text-[#f3e6c0]'
+                : 'text-[#6b6457] hover:text-[#16243f]'
+            }`}
+            onClick={() => setViewMode('builder')}
+          >
+            المصمم
+          </button>
+          <button
+            type="button"
+            className={`px-4 py-1.5 text-xs font-bold transition-all ${
+              viewMode === 'form_editor'
+                ? 'bg-[#16243f] text-[#f3e6c0]'
+                : 'text-[#6b6457] hover:text-[#16243f]'
+            }`}
+            onClick={() => setViewMode('form_editor')}
+          >
+            الاستمارة
+          </button>
+        </div>
         
         {cert?.is_master && (
           <div className="hidden md:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full" style={{ background: '#eef4ea', color: '#4f7d4a', fontWeight: 600 }}>
@@ -379,10 +546,11 @@ export default function EditCertificatePage() {
         </button>
       </header>
 
-      {/* ===== محتوى المصمم ===== */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        
-        {/* الشريط الجانبي الأيمن: إدارة العناصر والطبقات */}
+      {/* ===== محتوى الصفحة ===== */}
+      {viewMode === 'builder' ? (
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+          
+          {/* الشريط الجانبي الأيمن: إدارة العناصر والطبقات */}
         <aside className="panel-right order-2 lg:order-1 w-full lg:w-64 flex-shrink-0 p-4 flex flex-col gap-5 overflow-y-auto" style={{ background: 'var(--bg-card)', borderLeft: '1px solid var(--border-gold)' }}>
           <div>
             <p className="field-label text-right">إضافة عنصر للشهادة</p>
@@ -858,6 +1026,239 @@ export default function EditCertificatePage() {
           )}
         </aside>
       </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto content-bg py-8">
+          <div className="form-editor-container">
+            {/* Card 1: Title and Description Header (Google Forms style) */}
+            <div className="form-editor-card header-card">
+              <div className="form-group text-right">
+                <input
+                  type="text"
+                  className="form-input font-bold"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="عنوان الاستمارة"
+                  style={{
+                    fontSize: '1.6rem',
+                    border: 'none',
+                    borderBottom: '1.5px solid transparent',
+                    borderRadius: 0,
+                    padding: '0.25rem 0',
+                    background: 'transparent',
+                    fontFamily: 'Amiri, serif',
+                    color: 'var(--navy-dark)',
+                    boxShadow: 'none'
+                  }}
+                  onFocus={(e) => { e.target.style.borderBottom = '1.5px solid var(--gold-main)' }}
+                  onBlur={(e) => { e.target.style.borderBottom = '1.5px solid transparent' }}
+                />
+              </div>
+              <div className="form-group text-right" style={{ marginTop: '-0.5rem' }}>
+                <textarea
+                  className="form-textarea"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="وصف الاستمارة والتعليمات للطلاب..."
+                  rows={2}
+                  style={{
+                    border: 'none',
+                    borderBottom: '1.5px solid transparent',
+                    borderRadius: 0,
+                    padding: '0.25rem 0',
+                    background: 'transparent',
+                    fontSize: '0.88rem',
+                    color: 'var(--text-muted)',
+                    boxShadow: 'none',
+                    resize: 'none'
+                  }}
+                  onFocus={(e) => { e.target.style.borderBottom = '1.5px solid var(--gold-main)' }}
+                  onBlur={(e) => { e.target.style.borderBottom = '1.5px solid transparent' }}
+                />
+              </div>
+            </div>
+
+            {/* Cards 2+: Form Fields */}
+            {formFields.map((field, index) => {
+              const isCanvasField = !field.id.startsWith('extra-')
+              const isActive = activeFieldId === field.id
+
+              return (
+                <div
+                  key={field.id}
+                  className={`form-editor-card ${isActive ? 'active' : ''}`}
+                  onClick={() => setActiveFieldId(field.id)}
+                >
+                  {/* Field Details */}
+                  <div className="form-editor-row">
+                    {/* Field Label / Question */}
+                    <div className="flex-1 text-right">
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={field.label}
+                        onChange={(e) => {
+                          if (isCanvasField) {
+                            updateFormField(field.id, { label: e.target.value })
+                          } else {
+                            updateAdditionalFieldLabel(field.id, e.target.value)
+                          }
+                        }}
+                        placeholder="السؤال / اسم الحقل"
+                        style={{
+                          fontWeight: 600,
+                          fontSize: '0.95rem',
+                          border: 'none',
+                          borderBottom: '1.5px solid var(--border-gold)',
+                          borderRadius: 0,
+                          background: 'transparent',
+                          padding: '0.5rem 0',
+                          boxShadow: 'none'
+                        }}
+                      />
+                    </div>
+
+                    {/* Field Type Selector */}
+                    <select
+                      className="form-select form-editor-type-select"
+                      value={field.type}
+                      onChange={(e) => {
+                        const newType = e.target.value as FormField['type']
+                        const patch: Partial<FormField> = { type: newType }
+                        if (newType === 'select' && !field.options) {
+                          patch.options = ['الخيار الأول']
+                        }
+                        updateFormField(field.id, patch)
+                      }}
+                      style={{ fontSize: '0.82rem', padding: '0.45rem' }}
+                    >
+                      <option value="text">إجابة قصيرة (نص)</option>
+                      <option value="textarea">إجابة طويلة (فقرة)</option>
+                      <option value="date">تاريخ</option>
+                      <option value="select">قائمة خيارات (Dropdown)</option>
+                    </select>
+                  </div>
+
+                  {/* Additional Options (select dropdown) */}
+                  {field.type === 'select' && (
+                    <div className="form-editor-options-list text-right">
+                      <p className="text-[11px] font-bold mb-2" style={{ color: 'var(--text-muted)' }}>خيارات القائمة المنسدلة:</p>
+                      {(field.options || ['الخيار الأول']).map((option, optIdx) => (
+                        <div key={optIdx} className="form-editor-option-item">
+                          <span className="form-editor-option-dot" />
+                          <input
+                            type="text"
+                            className="form-input flex-1 py-1 px-2.5 text-xs"
+                            value={option}
+                            onChange={(e) => updateOption(field.id, optIdx, e.target.value)}
+                            style={{ background: '#fff', border: '1px solid var(--border-gold)' }}
+                          />
+                          <button
+                            type="button"
+                            className="text-[#9c3b3b] hover:text-[#7a2e2e] text-xs font-bold px-1"
+                            onClick={() => removeOption(field.id, optIdx)}
+                          >
+                            حذف
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        className="text-xs font-bold mt-1 inline-flex items-center gap-1 hover:text-[#16243f]"
+                        style={{ color: 'var(--gold-main)', background: 'none', border: 'none', cursor: 'pointer', width: 'fit-content' }}
+                        onClick={() => addOption(field.id)}
+                      >
+                        <span>+ إضافة خيار جديد</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Placeholder Config */}
+                  {field.type !== 'date' && (
+                    <div className="text-right">
+                      <input
+                        type="text"
+                        className="form-input text-xs py-1.5 px-3"
+                        value={field.placeholder || ''}
+                        onChange={(e) => updateFormField(field.id, { placeholder: e.target.value })}
+                        placeholder="نص تلميح مساعدة داخل المربع (اختياري)..."
+                        style={{ background: '#faf9f6', borderStyle: 'dashed' }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Card Actions Footer */}
+                  <div className="form-editor-actions">
+                    <div className="form-editor-action-group">
+                      <button
+                        type="button"
+                        className="form-editor-order-btn"
+                        onClick={(e) => { e.stopPropagation(); moveField(index, 'up'); }}
+                        disabled={index === 0}
+                        title="تحريك لأعلى"
+                      >
+                        <ChevronUp size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        className="form-editor-order-btn"
+                        onClick={(e) => { e.stopPropagation(); moveField(index, 'down'); }}
+                        disabled={index === formFields.length - 1}
+                        title="تحريك لأسفل"
+                      >
+                        <ChevronDown size={16} />
+                      </button>
+
+                      <span className={`form-editor-field-badge ${!isCanvasField ? 'additional' : ''}`}>
+                        {isCanvasField ? 'حقل الشهادة الأساسي' : 'حقل إضافي للاستمارة'}
+                      </span>
+                    </div>
+
+                    <div className="form-editor-action-group">
+                      <div className="flex items-center gap-1.5 ml-4">
+                        <input
+                          type="checkbox"
+                          id={`req-${field.id}`}
+                          checked={field.required}
+                          onChange={(e) => updateFormField(field.id, { required: e.target.checked })}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <label htmlFor={`req-${field.id}`} style={{ fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}>
+                          مطلوب إدخاله
+                        </label>
+                      </div>
+
+                      {!isCanvasField && (
+                        <button
+                          type="button"
+                          className="text-[#9c3b3b] hover:text-[#7a2e2e] flex items-center gap-1 text-xs font-bold pr-3 border-r"
+                          style={{ borderColor: 'var(--border-gold)' }}
+                          onClick={() => deleteAdditionalField(field.id)}
+                        >
+                          <Trash2 size={13} />
+                          <span>حذف الحقل</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Add Additional Field */}
+            <div className="form-editor-add-btn-container">
+              <button
+                type="button"
+                className="btn btn-secondary py-2.5 px-6 text-sm flex items-center gap-1.5 shadow-sm"
+                onClick={addAdditionalField}
+                style={{ background: '#fff', border: '1px solid var(--border-gold)' }}
+              >
+                <Plus size={16} />
+                <span>إضافة حقل إضافي للاستمارة</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Date Time Picker Modal */}
       <DateTimePickerModal

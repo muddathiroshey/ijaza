@@ -1254,3 +1254,164 @@ body {
   gap: 0.75rem;
 }
 
+/* ================================================
+   Custom Form Editor (Google Forms style) Styles
+   ================================================ */
+.form-editor-container {
+  width: 100%;
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-editor-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(22, 36, 63, 0.04);
+  position: relative;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-editor-card:hover {
+  box-shadow: 0 6px 16px rgba(22, 36, 63, 0.07);
+}
+
+.form-editor-card.active {
+  border-right: 4px solid var(--gold-main);
+  box-shadow: 0 8px 24px rgba(22, 36, 63, 0.08);
+}
+
+.form-editor-card.header-card {
+  border-top: 8px solid var(--navy-dark);
+}
+
+.form-editor-card-header {
+  font-family: 'Amiri', serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--navy-dark);
+}
+
+.form-editor-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+@media (max-width: 600px) {
+  .form-editor-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.form-editor-type-select {
+  width: 160px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .form-editor-type-select {
+    width: 100%;
+  }
+}
+
+.form-editor-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-gold);
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.form-editor-action-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-editor-field-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-full);
+  background-color: var(--success-bg);
+  color: var(--success);
+  border: 1px solid #d4e3cc;
+}
+
+.form-editor-field-badge.additional {
+  background-color: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid #ecdcae;
+}
+
+.form-editor-options-list {
+  background-color: #faf8f4;
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.form-editor-option-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-editor-option-dot {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-gold);
+  border-radius: 50%;
+  flex-shrink: 0;
+  background-color: #fff;
+}
+
+.form-editor-order-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  padding: 0.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.form-editor-order-btn:hover:not(:disabled) {
+  background-color: #f7f2e7;
+  color: var(--navy-dark);
+  border-color: var(--border-gold);
+}
+
+.form-editor-order-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.form-editor-add-btn-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+  margin-bottom: 2rem;
+}
+
+
