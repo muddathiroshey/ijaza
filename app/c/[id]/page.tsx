@@ -9,25 +9,6 @@ type Step = 'form' | 'generating' | 'certificate'
 
 /* ---------------------------------- عناصر زخرفية ---------------------------------- */
 
-function CornerOrnament({ corner }: { corner: 'tl' | 'tr' | 'br' | 'bl' }) {
-  const rotations = { tl: 0, tr: 90, br: 180, bl: 270 }
-  const pos = {
-    tl: { top: 10, left: 10 },
-    tr: { top: 10, right: 10 },
-    br: { bottom: 10, right: 10 },
-    bl: { bottom: 10, left: 10 },
-  }[corner]
-  return (
-    <svg
-      viewBox="0 0 30 30"
-      className="absolute w-7 h-7 pointer-events-none"
-      style={{ ...pos, transform: `rotate(${rotations[corner]}deg)` }}
-    >
-      <path d="M2,28 L2,10 Q2,2 10,2 L28,2" fill="none" stroke="#c9a227" strokeWidth="1.5" />
-      <circle cx="2" cy="28" r="1.6" fill="#c9a227" />
-    </svg>
-  )
-}
 
 function Watermark() {
   return (
@@ -343,14 +324,23 @@ export default function StudentCertificatePage() {
                 aspectRatio: builderConfig.orientation === 'landscape' ? '1.414 / 1' : '1 / 1.414',
                 width: builderConfig.orientation === 'landscape' ? '297mm' : '210mm',
                 height: builderConfig.orientation === 'landscape' ? '210mm' : '297mm',
-                border: '2px solid var(--gold-focus)',
+                border: 'none',
               }}
             >
-              <div className="absolute inset-2.5 pointer-events-none" style={{ border: '1px dashed var(--gold-focus)', opacity: 0.4 }} />
-              <CornerOrnament corner="tl" />
-              <CornerOrnament corner="tr" />
-              <CornerOrnament corner="br" />
-              <CornerOrnament corner="bl" />
+              {/* Border Image */}
+              <img
+                src="/border.png"
+                alt="Certificate Border"
+                className="absolute pointer-events-none select-none"
+                style={{
+                  width: builderConfig.orientation === 'landscape' ? '70.72%' : '100%',
+                  height: builderConfig.orientation === 'landscape' ? '141.42%' : '100%',
+                  top: builderConfig.orientation === 'landscape' ? '50%' : '0',
+                  left: builderConfig.orientation === 'landscape' ? '50%' : '0',
+                  transform: builderConfig.orientation === 'landscape' ? 'translate(-50%, -50%) rotate(90deg)' : 'none',
+                  objectFit: 'fill',
+                }}
+              />
 
               {builderConfig.elements.map((el: any) => {
                 if (el.hidden) return null
