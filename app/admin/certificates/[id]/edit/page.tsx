@@ -2,418 +2,70 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import type { Certificate, FormField, Asset } from '@/lib/types'
 import Link from 'next/link'
+import type { Certificate, FormField, Asset } from '@/lib/types'
+import {
+  ArrowRight,
+  Type,
+  Image as ImageIcon,
+  Stamp as StampIcon,
+  PenTool,
+  GripVertical,
+  Eye,
+  EyeOff,
+  Trash2,
+  AlignRight,
+  AlignCenter,
+  AlignLeft,
+  Save,
+  Sparkles,
+  Plus,
+  Info,
+  Palette,
+  ChevronDown,
+} from 'lucide-react'
 
-// ── Unique ID helper ──────────────────────────────────────────────────────────
-function uid() {
-  return Math.random().toString(36).slice(2, 10)
-}
+/* ---------------------------------- عناصر زخرفية ---------------------------------- */
 
-// ── Template Editor Component ─────────────────────────────────────────────────
-function TemplateEditor({
-  value,
-  onChange,
-  assets,
-}: {
-  value: string
-  onChange: (html: string) => void
-  assets: Asset[]
-}) {
-  const editorRef = useRef<HTMLDivElement>(null)
-  const [showAssets, setShowAssets] = useState(false)
-  const [showVars, setShowVars] = useState(false)
-  const [vars, setVars] = useState<string[]>([])
-
-  // Extract variables from form fields
-  useEffect(() => {
-    const matches = value.match(/\{\{[^}]+\}\}/g) || []
-    setVars([...new Set(matches)])
-  }, [value])
-
-  function execCmd(cmd: string, val?: string) {
-    document.execCommand(cmd, false, val)
-    editorRef.current?.focus()
-    handleInput()
-  }
-
-  function handleInput() {
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML)
-    }
-  }
-
-  function insertVariable(v: string) {
-    const selection = window.getSelection()
-    if (!selection || !editorRef.current) return
-    
-    const node = document.createTextNode(v)
-    if (selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0)
-      range.deleteContents()
-      range.insertNode(node)
-      range.setStartAfter(node)
-      range.setEndAfter(node)
-      selection.removeAllRanges()
-      selection.addRange(range)
-    } else {
-      editorRef.current.appendChild(node)
-    }
-    handleInput()
-    setShowVars(false)
-  }
-
-  function insertImage(url: string) {
-    const img = `<img src="${url}" style="max-width:160px; max-height:100px; display:inline-block; vertical-align:middle;" alt="توقيع/ختم" />`
-    document.execCommand('insertHTML', false, img)
-    editorRef.current?.focus()
-    handleInput()
-    setShowAssets(false)
-  }
-
-  function setFontSize(size: string) {
-    execCmd('fontSize', size)
-  }
-
-  function setColor(color: string) {
-    execCmd('foreColor', color)
-  }
-
-  function setAlignment(align: string) {
-    execCmd('justify' + align)
-  }
-
-  const toolbarColors = ['#1a1a1a', '#6c47ff', '#10b981', '#ef4444', '#f59e0b', '#3b82f6', '#ec4899']
-
+function CornerOrnament({ corner }: { corner: 'tl' | 'tr' | 'br' | 'bl' }) {
+  const rotations = { tl: 0, tr: 90, br: 180, bl: 270 }
+  const pos = {
+    tl: { top: 10, left: 10 },
+    tr: { top: 10, right: 10 },
+    br: { bottom: 10, right: 10 },
+    bl: { bottom: 10, left: 10 },
+  }[corner]
   return (
-    <div className="template-editor-wrapper">
-      {/* Toolbar */}
-      <div className="template-editor-toolbar">
-        {/* Text formatting */}
-        <button className="toolbar-btn" title="عريض" onClick={() => execCmd('bold')}><b>ع</b></button>
-        <button className="toolbar-btn" title="مائل" onClick={() => execCmd('italic')}><i>م</i></button>
-        <button className="toolbar-btn" title="تسطير" onClick={() => execCmd('underline')}><u>خ</u></button>
-        
-        <div className="toolbar-divider" />
-
-        {/* Font size */}
-        <select
-          title="حجم الخط"
-          onChange={(e) => setFontSize(e.target.value)}
-          style={{ background: 'transparent', border: '1px solid #ddd', borderRadius: '4px', padding: '2px 6px', fontSize: '0.8rem', cursor: 'pointer' }}
-        >
-          <option value="">حجم الخط</option>
-          {[1,2,3,4,5,6,7].map(s => (
-            <option key={s} value={s}>{['صغير جداً','صغير','عادي','متوسط','كبير','كبير جداً','ضخم'][s-1]}</option>
-          ))}
-        </select>
-
-        <div className="toolbar-divider" />
-
-        {/* Alignment */}
-        <button className="toolbar-btn" title="محاذاة يمين" onClick={() => setAlignment('Right')}>
-          <svg viewBox="0 0 16 16" width="14" fill="currentColor"><path d="M1 2h14v1.5H1V2zm4 3h10v1.5H5V5zm-4 3h14v1.5H1V8zm4 3h10v1.5H5V11z"/></svg>
-        </button>
-        <button className="toolbar-btn" title="توسيط" onClick={() => setAlignment('Center')}>
-          <svg viewBox="0 0 16 16" width="14" fill="currentColor"><path d="M1 2h14v1.5H1V2zm3 3h8v1.5H4V5zm-3 3h14v1.5H1V8zm3 3h8v1.5H4V11z"/></svg>
-        </button>
-        <button className="toolbar-btn" title="محاذاة يسار" onClick={() => setAlignment('Left')}>
-          <svg viewBox="0 0 16 16" width="14" fill="currentColor"><path d="M1 2h14v1.5H1V2zm0 3h10v1.5H1V5zm0 3h14v1.5H1V8zm0 3h10v1.5H1V11z"/></svg>
-        </button>
-
-        <div className="toolbar-divider" />
-
-        {/* Colors */}
-        <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
-          {toolbarColors.map(c => (
-            <button
-              key={c}
-              title="لون النص"
-              onClick={() => setColor(c)}
-              style={{ width: '18px', height: '18px', borderRadius: '3px', background: c, border: '1px solid rgba(0,0,0,0.2)', cursor: 'pointer', padding: 0 }}
-            />
-          ))}
-        </div>
-
-        <div className="toolbar-divider" />
-
-        {/* Insert variable */}
-        <div style={{ position: 'relative' }}>
-          <button
-            className="toolbar-btn"
-            onClick={() => { setShowVars(!showVars); setShowAssets(false) }}
-            title="إدراج متغير"
-            style={{ color: '#6c47ff', fontWeight: 700 }}
-          >
-            &#123;&#123;متغير&#125;&#125;
-          </button>
-          {showVars && (
-            <div className="dropdown-panel">
-              <div className="dropdown-header">اختر متغيراً لإدراجه</div>
-              {vars.length === 0 ? (
-                <div className="dropdown-empty">لا توجد متغيرات — أضف حقولاً من قسم النموذج أولاً</div>
-              ) : (
-                vars.map(v => (
-                  <button key={v} className="dropdown-item" onClick={() => insertVariable(v)}>{v}</button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Insert asset */}
-        <div style={{ position: 'relative' }}>
-          <button
-            className="toolbar-btn"
-            onClick={() => { setShowAssets(!showAssets); setShowVars(false) }}
-            title="إدراج توقيع أو ختم"
-          >
-            🖊 توقيع/ختم
-          </button>
-          {showAssets && (
-            <div className="dropdown-panel" style={{ width: '280px' }}>
-              <div className="dropdown-header">اختر توقيعاً أو ختماً</div>
-              {assets.length === 0 ? (
-                <div className="dropdown-empty">لا توجد أصول — أضفها من صفحة التواقيع والأختام</div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '6px', padding: '8px' }}>
-                  {assets.map(a => (
-                    <button
-                      key={a.id}
-                      onClick={() => insertImage(a.public_url)}
-                      title={a.name}
-                      style={{ background: 'white', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '4px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
-                    >
-                      <img src={a.public_url} alt={a.name} style={{ width: '60px', height: '45px', objectFit: 'contain' }} />
-                      <span style={{ fontSize: '0.7rem', color: '#555', textAlign: 'center' }}>{a.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Editable area (A4 preview) */}
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleInput}
-        dangerouslySetInnerHTML={{ __html: value }}
-        className="certificate-a4"
-        style={{ minHeight: '297mm', outline: 'none', cursor: 'text' }}
-        dir="rtl"
-        id="template-editor-area"
-      />
-
-      <style jsx>{`
-        .dropdown-panel {
-          position: absolute;
-          top: 100%;
-          right: 0;
-          background: white;
-          border: 1px solid #e0e0e0;
-          border-radius: 8px;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-          min-width: 200px;
-          z-index: 100;
-          overflow: hidden;
-        }
-        .dropdown-header {
-          padding: 8px 12px;
-          font-size: 0.8rem;
-          color: #888;
-          border-bottom: 1px solid #f0f0f0;
-          background: #fafafa;
-        }
-        .dropdown-empty {
-          padding: 12px;
-          font-size: 0.82rem;
-          color: #aaa;
-          text-align: center;
-        }
-        .dropdown-item {
-          display: block;
-          width: 100%;
-          padding: 8px 12px;
-          text-align: right;
-          background: transparent;
-          border: none;
-          cursor: pointer;
-          font-family: 'Cairo', sans-serif;
-          font-size: 0.9rem;
-          color: #333;
-          border-bottom: 1px solid #f5f5f5;
-          transition: background 0.15s;
-        }
-        .dropdown-item:hover { background: #f0eeff; color: #6c47ff; }
-      `}</style>
-    </div>
+    <svg
+      viewBox="0 0 30 30"
+      className="absolute w-7 h-7 pointer-events-none"
+      style={{ ...pos, transform: `rotate(${rotations[corner]}deg)` }}
+    >
+      <path d="M2,28 L2,10 Q2,2 10,2 L28,2" fill="none" stroke="#c9a227" strokeWidth="1.5" />
+      <circle cx="2" cy="28" r="1.6" fill="#c9a227" />
+    </svg>
   )
 }
 
-// ── Form Builder Component ────────────────────────────────────────────────────
-function FormBuilder({
-  fields,
-  onChange,
-}: {
-  fields: FormField[]
-  onChange: (fields: FormField[]) => void
-}) {
-  function addField() {
-    const newField: FormField = {
-      id: uid(),
-      label: 'حقل جديد',
-      type: 'text',
-      placeholder: '',
-      required: true,
-      variable: `{{حقل_${fields.length + 1}}}`,
-    }
-    onChange([...fields, newField])
-  }
+/* ---------------------------------- القوالب الافتراضية ---------------------------------- */
 
-  function updateField(id: string, updates: Partial<FormField>) {
-    onChange(fields.map(f => f.id === id ? { ...f, ...updates } : f))
-  }
+const INITIAL_ELEMENTS = [
+  { id: 'academy', type: 'static', text: 'أكاديمية النور للعلوم الشرعية', x: 50, y: 10, font: 'Tajawal', size: 14, weight: 500, color: '#6b6457', align: 'center' },
+  { id: 'title', type: 'static', text: 'إجازة حفظ القرآن الكريم', x: 50, y: 22, font: 'Amiri', size: 32, weight: 700, color: '#16243f', align: 'center' },
+  { id: 'intro', type: 'static', text: 'تشهد الأكاديمية بأنّ الطالب/ـة', x: 50, y: 34, font: 'Tajawal', size: 14, weight: 400, color: '#6b6457', align: 'center' },
+  { id: 'student_name', type: 'field', key: 'اسم الطالب', text: 'سارة أحمد القحطاني', x: 50, y: 45, font: 'Amiri', size: 24, weight: 700, color: '#b8923a', align: 'center' },
+  { id: 'body', type: 'static', text: 'قد أتمّ/ـت بنجاح حفظ جزء عمّ كاملاً بإتقان وضبط', x: 50, y: 55, font: 'Tajawal', size: 14, weight: 400, color: '#1f2733', align: 'center' },
+  { id: 'date', type: 'field', key: 'تاريخ الإصدار', text: '١٨ يونيو ٢٠٢٦', x: 50, y: 65, font: 'Tajawal', size: 13, weight: 600, color: '#1f2733', align: 'center' },
+  { id: 'cert_no', type: 'field', key: 'رقم الإجازة', text: 'IJ-2026-0458', x: 16, y: 8, font: 'Tajawal', size: 10, weight: 400, color: '#a39c8c', align: 'center' },
+  { id: 'signature', type: 'image', label: 'توقيع المدير', x: 26, y: 84, w: 14, h: 12, url: '' },
+  { id: 'stamp', type: 'image', label: 'الختم الرسمي', x: 74, y: 84, w: 13, h: 18, url: '' },
+]
 
-  function removeField(id: string) {
-    onChange(fields.filter(f => f.id !== id))
-  }
+const BG_SWATCHES = ['#fffdf8', '#f7f2e7', '#f3ecd8', '#f0f0ec']
+const COLOR_SWATCHES = ['#16243f', '#b8923a', '#1f2733', '#7a2e2e', '#4f7d4a', '#8a8378']
 
-  function moveField(idx: number, dir: 'up' | 'down') {
-    const arr = [...fields]
-    const target = dir === 'up' ? idx - 1 : idx + 1
-    if (target < 0 || target >= arr.length) return
-    ;[arr[idx], arr[target]] = [arr[target], arr[idx]]
-    onChange(arr)
-  }
+/* ---------------------------------- التطبيق الرئيسي ---------------------------------- */
 
-  return (
-    <div>
-      {fields.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-          لا توجد حقول — أضف حقلاً أولاً
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
-          {fields.map((field, idx) => (
-            <div key={field.id} className="field-pill">
-              {/* Move buttons */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <button
-                  className="btn btn-secondary btn-icon"
-                  style={{ padding: '2px 5px', fontSize: '0.7rem' }}
-                  onClick={() => moveField(idx, 'up')}
-                  disabled={idx === 0}
-                  title="تحريك لأعلى"
-                >▲</button>
-                <button
-                  className="btn btn-secondary btn-icon"
-                  style={{ padding: '2px 5px', fontSize: '0.7rem' }}
-                  onClick={() => moveField(idx, 'down')}
-                  disabled={idx === fields.length - 1}
-                  title="تحريك لأسفل"
-                >▼</button>
-              </div>
-
-              {/* Field fields */}
-              <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.78rem' }}>اسم الحقل</label>
-                  <input
-                    className="form-input"
-                    style={{ padding: '0.45rem 0.7rem', fontSize: '0.85rem' }}
-                    value={field.label}
-                    onChange={e => updateField(field.id, { label: e.target.value })}
-                    placeholder="اسم الحقل"
-                  />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.78rem' }}>المتغير في القالب</label>
-                  <input
-                    className="form-input"
-                    style={{ padding: '0.45rem 0.7rem', fontSize: '0.85rem', direction: 'ltr', fontFamily: 'monospace' }}
-                    value={field.variable}
-                    onChange={e => updateField(field.id, { variable: e.target.value })}
-                    placeholder="{{اسم_المتغير}}"
-                  />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.78rem' }}>نوع الحقل</label>
-                  <select
-                    className="form-select"
-                    style={{ padding: '0.45rem 0.7rem', fontSize: '0.85rem' }}
-                    value={field.type}
-                    onChange={e => updateField(field.id, { type: e.target.value as FormField['type'] })}
-                  >
-                    <option value="text">نص قصير</option>
-                    <option value="textarea">نص طويل</option>
-                    <option value="date">تاريخ</option>
-                    <option value="select">قائمة منسدلة</option>
-                  </select>
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.78rem' }}>نص التلميح</label>
-                  <input
-                    className="form-input"
-                    style={{ padding: '0.45rem 0.7rem', fontSize: '0.85rem' }}
-                    value={field.placeholder || ''}
-                    onChange={e => updateField(field.id, { placeholder: e.target.value })}
-                    placeholder="نص توضيحي (اختياري)"
-                  />
-                </div>
-                {field.type === 'select' && (
-                  <div className="form-group" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
-                    <label className="form-label" style={{ fontSize: '0.78rem' }}>الخيارات (مفصولة بفاصلة)</label>
-                    <input
-                      className="form-input"
-                      style={{ padding: '0.45rem 0.7rem', fontSize: '0.85rem' }}
-                      value={(field.options || []).join(',')}
-                      onChange={e => updateField(field.id, { options: e.target.value.split(',').map(o => o.trim()) })}
-                      placeholder="خيار 1, خيار 2, خيار 3"
-                    />
-                  </div>
-                )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', gridColumn: '1 / -1' }}>
-                  <input
-                    type="checkbox"
-                    id={`req-${field.id}`}
-                    checked={field.required}
-                    onChange={e => updateField(field.id, { required: e.target.checked })}
-                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                  />
-                  <label htmlFor={`req-${field.id}`} style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>حقل إلزامي</label>
-                </div>
-              </div>
-
-              {/* Delete */}
-              <button
-                className="btn btn-danger btn-icon"
-                onClick={() => removeField(field.id)}
-                title="حذف الحقل"
-              >
-                <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
-                  <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <button className="btn btn-secondary" onClick={addField} id="add-field-btn">
-        <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="2.5">
-          <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-        </svg>
-        إضافة حقل
-      </button>
-    </div>
-  )
-}
-
-// ── Main Edit Page ────────────────────────────────────────────────────────────
 export default function EditCertificatePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -421,52 +73,77 @@ export default function EditCertificatePage() {
   const [cert, setCert] = useState<Certificate | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [templateHtml, setTemplateHtml] = useState('')
-  const [formFields, setFormFields] = useState<FormField[]>([])
-  const [activeTab, setActiveTab] = useState<'template' | 'form' | 'settings'>('template')
   const [assets, setAssets] = useState<Asset[]>([])
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
-  const [closing, setClosing] = useState(false)
 
-  // New settings states
-  const [title, setTitle] = useState('')
+  // Layout State
+  const [templateName, setTemplateName] = useState('')
   const [description, setDescription] = useState('')
+  const [elements, setElements] = useState<any[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [bg, setBg] = useState(BG_SWATCHES[0])
+  const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape')
+
+  // Auto Close Settings
   const [autoCloseEnabled, setAutoCloseEnabled] = useState(false)
   const [autoCloseAt, setAutoCloseAt] = useState('')
+
+  // Drag Refs
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const dragState = useRef<{ id: string; startX: number; startY: number; originX: number; originY: number } | null>(null)
+  const idCounter = useRef(1)
+
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
   }
 
+  // Load Certificate and Assets
   const loadData = useCallback(async () => {
     try {
       const [certRes, assetsRes] = await Promise.all([
         fetch(`/api/certificates/${id}`),
         fetch('/api/assets'),
       ])
+
+      if (!certRes.ok) throw new Error()
+
       const certData = await certRes.json()
       const assetsData = await assetsRes.json()
-      setCert(certData)
-      setTemplateHtml(certData.template_html || getDefaultTemplate(certData.title))
-      setFormFields(certData.form_fields || [])
-      setAssets(assetsData)
 
-      // Initialize settings states
-      setTitle(certData.title || '')
+      setCert(certData)
+      setTemplateName(certData.title || '')
       setDescription(certData.description || '')
+      setAssets(assetsData || [])
+
+      // Parse JSON configuration from template_html if exists, otherwise load default
+      if (certData.template_html && certData.template_html.startsWith('{')) {
+        try {
+          const config = JSON.parse(certData.template_html)
+          setElements(config.elements || INITIAL_ELEMENTS)
+          setBg(config.bg || BG_SWATCHES[0])
+          setOrientation(config.orientation || 'landscape')
+        } catch {
+          setElements(INITIAL_ELEMENTS)
+        }
+      } else {
+        setElements(INITIAL_ELEMENTS)
+      }
+
+      // Initialize Auto Close Settings
       if (certData.auto_close_at) {
         setAutoCloseEnabled(true)
         const localDate = new Date(certData.auto_close_at)
         const tzOffset = localDate.getTimezoneOffset() * 60000
-        const localISOTime = (new Date(localDate.getTime() - tzOffset)).toISOString().slice(0, 16)
+        const localISOTime = new Date(localDate.getTime() - tzOffset).toISOString().slice(0, 16)
         setAutoCloseAt(localISOTime)
       } else {
         setAutoCloseEnabled(false)
         setAutoCloseAt('')
       }
     } catch {
-      showToast('فشل تحميل البيانات', 'error')
+      showToast('فشل تحميل بيانات الإجازة', 'error')
     } finally {
       setLoading(false)
     }
@@ -476,59 +153,120 @@ export default function EditCertificatePage() {
     loadData()
   }, [loadData])
 
-  function getDefaultTemplate(title: string) {
-    return `<div style="text-align:center; padding: 20px; font-family: Cairo, sans-serif;">
-  <h1 style="font-size: 2.5em; color: #4a3000; margin-bottom: 10px; font-weight: 900;">بسم الله الرحمن الرحيم</h1>
-  <div style="border: 3px double #8b6900; padding: 30px; margin: 20px 0; border-radius: 8px;">
-    <h2 style="font-size: 2em; color: #6c47ff; margin-bottom: 20px;">${title}</h2>
-    <p style="font-size: 1.3em; color: #333; line-height: 2; margin-bottom: 20px;">
-      نشهد أن الطالب/ة الكريم/ة
-    </p>
-    <p style="font-size: 1.8em; color: #4a3000; font-weight: 800; margin-bottom: 20px;">{{اسم_الطالب}}</p>
-    <p style="font-size: 1.3em; color: #333; line-height: 2;">
-      قد أتم/أتمت بنجاح وتفوق متطلبات هذه الإجازة، وقد منحناه/منحناها هذه الشهادة تقديراً لجهوده/جهودها.
-    </p>
-    <p style="font-size: 1.1em; color: #555; margin-top: 20px;">التاريخ: {{التاريخ}}</p>
-  </div>
-  <div style="margin-top: 40px; display: flex; justify-content: space-around;">
-    <div style="text-align: center;">
-      <div style="height: 60px;"></div>
-      <p style="border-top: 1px solid #333; padding-top: 8px; color: #555;">توقيع المشرف</p>
-    </div>
-    <div style="text-align: center;">
-      <div style="height: 60px;"></div>
-      <p style="border-top: 1px solid #333; padding-top: 8px; color: #555;">الختم الرسمي</p>
-    </div>
-  </div>
-</div>`
+  const selected = elements.find((e) => e.id === selectedId) || null
+
+  // Element Actions
+  function updateElement(elId: string, patch: any) {
+    setElements((prev) => prev.map((it) => (it.id === elId ? { ...it, ...patch } : it)))
   }
 
+  function deleteElement(elId: string) {
+    setElements((prev) => prev.filter((it) => it.id !== elId))
+    if (selectedId === elId) setSelectedId(null)
+  }
+
+  function addElement(type: 'static' | 'field' | 'image') {
+    const newId = `new-${idCounter.current++}`
+    let el: any = { id: newId, type, x: 50, y: 50, font: 'Tajawal', size: 14, weight: 400, color: '#1f2733', align: 'center' }
+    
+    if (type === 'static') {
+      el.text = 'نص جديد'
+    } else if (type === 'field') {
+      el.key = 'حقل متغيّر'
+      el.text = 'نص تجريبي'
+    } else if (type === 'image') {
+      el.label = 'ختم/توقيع'
+      el.w = 14
+      el.h = 14
+      el.url = ''
+    }
+
+    setElements((prev) => [...prev, el])
+    setSelectedId(newId)
+  }
+
+  // Drag and Drop Handlers
+  function handleElementMouseDown(e: React.MouseEvent, el: any) {
+    e.stopPropagation()
+    setSelectedId(el.id)
+    dragState.current = {
+      id: el.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: el.x,
+      originY: el.y,
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }
+
+  function handleMouseMove(e: MouseEvent) {
+    if (!dragState.current || !canvasRef.current) return
+    const rect = canvasRef.current.getBoundingClientRect()
+    const dxPct = ((e.clientX - dragState.current.startX) / rect.width) * 100
+    const dyPct = ((e.clientY - dragState.current.startY) / rect.height) * 100
+    const newX = Math.min(96, Math.max(4, dragState.current.originX + dxPct))
+    const newY = Math.min(96, Math.max(4, dragState.current.originY + dyPct))
+    
+    setElements((prev) =>
+      prev.map((it) => (it.id === dragState.current!.id ? { ...it, x: newX, y: newY } : it))
+    )
+  }
+
+  function handleMouseUp() {
+    dragState.current = null
+    window.removeEventListener('mousemove', handleMouseMove)
+    window.removeEventListener('mouseup', handleMouseUp)
+  }
+
+  // Save Config to Database
   async function handleSave() {
     setSaving(true)
     try {
+      // 1. Compile visual layout state into JSON configuration string
+      const configJson = JSON.stringify({
+        elements,
+        bg,
+        orientation,
+      })
+
+      // 2. Generate form fields list from elements of type === 'field'
+      const formFields: FormField[] = elements
+        .filter((el) => el.type === 'field')
+        .map((el) => ({
+          id: el.id,
+          label: el.key,
+          type: el.key.includes('تاريخ') ? 'date' : 'text',
+          required: true,
+          variable: el.key,
+        }))
+
+      // 3. Patch database record
       const res = await fetch(`/api/certificates/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title,
+          title: templateName,
           description,
-          template_html: templateHtml,
+          template_html: configJson,
           form_fields: formFields,
           auto_close_at: autoCloseEnabled && autoCloseAt ? new Date(autoCloseAt).toISOString() : null,
         }),
       })
+
       if (!res.ok) throw new Error()
-      const updatedData = await res.json()
-      setCert(updatedData)
-      showToast('تم الحفظ بنجاح ✓')
+      const updated = await res.json()
+      setCert(updated)
+      showToast('تم حفظ التغييرات بنجاح ✓')
     } catch {
-      showToast('فشل الحفظ', 'error')
+      showToast('فشل حفظ التغييرات', 'error')
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleSaveAsMaster() {
+  // Set Master Template
+  async function handleSetMaster() {
     setSaving(true)
     try {
       const res = await fetch(`/api/certificates/${id}`, {
@@ -537,253 +275,309 @@ export default function EditCertificatePage() {
         body: JSON.stringify({ is_master: true }),
       })
       if (!res.ok) throw new Error()
-      setCert(prev => prev ? { ...prev, is_master: true } : prev)
-      showToast('تم حفظ القالب كقالب رئيسي معتمد بنجاح ⭐')
+      setCert((prev) => (prev ? { ...prev, is_master: true } : prev))
+      showToast('تم تعيين القالب كقالب رئيسي معتمد للمؤسسة ⭐')
     } catch {
-      showToast('فشل تعيين القالب الرئيسي', 'error')
+      showToast('فشل تعيين كقالب رئيسي', 'error')
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleClose() {
-    if (!confirm('هل تريد إغلاق التقديم على هذه الإجازة؟ سيتم تصدير بيانات التقديمات كملف CSV.')) return
-    setClosing(true)
-    try {
-      const res = await fetch(`/api/certificates/${id}/close`, { method: 'POST' })
-      const data = await res.json()
-      if (data.success) {
-        showToast(`تم الإغلاق وتصدير ${data.count} تقديم`)
-        setCert(prev => prev ? { ...prev, is_open: false, csv_data: data.csv } : prev)
-      } else {
-        throw new Error()
-      }
-    } catch {
-      showToast('فشل إغلاق التقديم', 'error')
-    } finally {
-      setClosing(false)
-    }
-  }
-
-  async function handleReopen() {
-    try {
-      await fetch(`/api/certificates/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_open: true }),
-      })
-      setCert(prev => prev ? { ...prev, is_open: true } : prev)
-      showToast('تم إعادة فتح التقديم')
-    } catch {
-      showToast('فشل', 'error')
-    }
-  }
-
-  function downloadCsv() {
-    if (!cert?.csv_data) return
-    const blob = new Blob(['\uFEFF' + cert.csv_data], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${cert.title}_تقديمات.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const publicLink = typeof window !== 'undefined' ? `${window.location.origin}/c/${id}` : `/c/${id}`
-
   if (loading) {
     return (
       <div className="loading-screen">
         <div className="spinner" />
-        <span>جاري التحميل...</span>
+        <span>جاري تحميل المصمم...</span>
       </div>
     )
   }
 
+  const publicLink = typeof window !== 'undefined' ? `${window.location.origin}/c/${id}` : `/c/${id}`
+
   return (
-    <div className="edit-page">
-      {/* Navigation */}
-      <nav className="nav">
-        <div className="nav-inner">
-          <div className="flex items-center gap-2">
-            <Link href="/admin" className="btn btn-secondary btn-sm">
-              <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" strokeWidth="2">
-                <path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              العودة
-            </Link>
-            <span className="nav-logo" style={{ fontSize: '1.1rem' }}>
-              {cert?.title}
-            </span>
+    <div dir="rtl" className="min-h-screen flex flex-col" style={{ background: 'var(--bg-cream)' }}>
+      {/* ===== الشريط العلوي (Topbar) ===== */}
+      <header className="topbar flex items-center gap-4 px-5 lg:px-7 py-3 shadow-sm z-10">
+        <Link href="/admin" className="icon-btn flex items-center justify-center" title="رجوع إلى الإجازات">
+          <ArrowRight size={18} />
+        </Link>
+        <div className="flex flex-col flex-1 min-w-0 text-right">
+          <p className="text-[11px] font-semibold" style={{ color: 'var(--gold-main)' }}>
+            محرر الإجازات / مصمم القوالب
+          </p>
+          <input
+            className="name-input w-full"
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'Amiri, serif' }}
+          />
+        </div>
+        
+        {cert?.is_master && (
+          <div className="hidden md:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full" style={{ background: '#eef4ea', color: '#4f7d4a', fontWeight: 600 }}>
+            <Sparkles size={13} />
+            القالب الرئيسي المعتمد
+          </div>
+        )}
+
+        <button className="btn btn-secondary px-4 py-2 text-sm hidden sm:inline-flex items-center gap-1.5" onClick={() => window.open(publicLink, '_blank')}>
+          <Eye size={15} />
+          <span>معاينة الرابط</span>
+        </button>
+        
+        <button className="btn btn-gold px-4 py-2 text-sm inline-flex items-center gap-1.5" onClick={handleSave} disabled={saving}>
+          <Save size={15} />
+          <span>{saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}</span>
+        </button>
+      </header>
+
+      {/* ===== محتوى المصمم ===== */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        
+        {/* الشريط الجانبي الأيمن: إدارة العناصر والطبقات */}
+        <aside className="panel-right order-2 lg:order-1 w-full lg:w-64 flex-shrink-0 p-4 flex flex-col gap-5 overflow-y-auto" style={{ background: 'var(--bg-card)', borderLeft: '1px solid var(--border-gold)' }}>
+          <div>
+            <p className="field-label text-right">إضافة عنصر للشهادة</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button className="tool-btn" onClick={() => addElement('static')}>
+                <Type size={16} />
+                <span>نص ثابت</span>
+              </button>
+              <button className="tool-btn" onClick={() => addElement('field')}>
+                <span className="font-bold text-xs">{"{ }"}</span>
+                <span>حقل متغيّر</span>
+              </button>
+              <button className="tool-btn" onClick={() => addElement('image')}>
+                <ImageIcon size={16} />
+                <span>توقيع/ختم</span>
+              </button>
+            </div>
           </div>
 
-          <div className="nav-actions">
-            <button
-              className={`btn ${cert?.is_master ? 'btn-success' : 'btn-secondary'} btn-sm`}
-              onClick={handleSaveAsMaster}
-              disabled={saving}
-              id="master-cert-btn"
-              title="عند تعيين هذا القالب كقالب رئيسي، سيتم استخدام تصميمه وحقوله تلقائياً للإجازات الجديدة"
-            >
-              {cert?.is_master ? '⭐ قالب رئيسي' : '☆ تعيين كقالب رئيسي'}
-            </button>
-            {cert?.is_open ? (
-              <button className="btn btn-danger btn-sm" onClick={handleClose} disabled={closing} id="close-cert-btn">
-                {closing ? 'جاري الإغلاق...' : '🔒 إغلاق التقديم'}
-              </button>
-            ) : (
-              <>
-                <button className="btn btn-success btn-sm" onClick={handleReopen} id="reopen-cert-btn">🔓 إعادة الفتح</button>
-                {cert?.csv_data && (
-                  <button className="btn btn-secondary btn-sm" onClick={downloadCsv} id="download-csv-btn">
-                    ⬇ تحميل CSV
+          <div className="flex-1 min-h-0 flex flex-col text-right">
+            <p className="field-label">طبقات العناصر ({elements.length})</p>
+            <div className="flex flex-col gap-0.5 overflow-y-auto pr-1">
+              {elements.map((el) => (
+                <div
+                  key={el.id}
+                  className={`layer-row ${selectedId === el.id ? 'active' : ''}`}
+                  onClick={() => setSelectedId(el.id)}
+                >
+                  <GripVertical size={13} style={{ color: '#c2b896' }} />
+                  {el.type === 'static' && <Type size={14} style={{ color: '#6b6457' }} />}
+                  {el.type === 'field' && <span className="font-mono text-[10px] font-bold" style={{ color: 'var(--gold-main)' }}>{"{}"}</span>}
+                  {el.type === 'image' && <PenTool size={14} style={{ color: 'var(--gold-main)' }} />}
+                  
+                  <span className="text-xs flex-1 truncate pr-1" style={{ color: el.hidden ? '#b3ab9a' : 'var(--text-main)' }}>
+                    {el.type === 'field' ? el.key : el.type === 'image' ? el.label : el.text}
+                  </span>
+                  
+                  <button
+                    className="icon-btn mr-auto"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      updateElement(el.id, { hidden: !el.hidden })
+                    }}
+                  >
+                    {el.hidden ? <EyeOff size={13} /> : <Eye size={13} />}
                   </button>
-                )}
-              </>
-            )}
-            <Link href={`/admin/certificates/${id}`} className="btn btn-secondary btn-sm" target="_blank" id="preview-cert-btn">
-              👁 معاينة
-            </Link>
-            <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving} id="save-cert-btn">
-              {saving ? 'جاري الحفظ...' : '💾 حفظ'}
-            </button>
+                  <button
+                    className="icon-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      deleteElement(el.id)
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* مساحة العمل: لوحة التصميم */}
+        <div className="order-1 lg:order-2 flex-1 overflow-auto p-6 lg:p-10 flex items-start justify-center content-bg">
+          <div className="w-full" style={{ maxWidth: 840 }}>
+            <div
+              ref={canvasRef}
+              onMouseDown={() => setSelectedId(null)}
+              className="relative w-full rounded-md shadow-xl certificate-a4"
+              style={{
+                background: bg,
+                aspectRatio: orientation === 'landscape' ? '1.414 / 1' : '1 / 1.414',
+                border: '2.5px solid var(--gold-focus)',
+              }}
+            >
+              {/* Ornaments */}
+              <div className="absolute inset-2.5 pointer-events-none" style={{ border: '1px dashed var(--gold-focus)', opacity: 0.4 }} />
+              <CornerOrnament corner="tl" />
+              <CornerOrnament corner="tr" />
+              <CornerOrnament corner="br" />
+              <CornerOrnament corner="bl" />
+
+              {/* Elements Rendering */}
+              {elements.map((el) => {
+                const isSelected = selectedId === el.id
+                
+                if (el.type === 'image') {
+                  return (
+                    <div
+                      key={el.id}
+                      onMouseDown={(e) => handleElementMouseDown(e, el)}
+                      className={`image-slot ${isSelected ? 'selected' : ''} ${el.hidden ? 'hidden-el' : ''}`}
+                      style={{
+                        left: `${el.x}%`,
+                        top: `${el.y}%`,
+                        width: `${el.w}%`,
+                        height: `${el.h}%`,
+                      }}
+                    >
+                      {el.url ? (
+                        <img src={el.url} alt={el.label} className="w-full h-full object-contain pointer-events-none" />
+                      ) : (
+                        <>
+                          {el.label.includes('ختم') ? (
+                            <StampIcon size={20} style={{ color: 'var(--gold-main)' }} />
+                          ) : (
+                            <PenTool size={18} style={{ color: 'var(--gold-main)' }} />
+                          )}
+                          <span className="text-[8px] font-bold" style={{ color: '#9c7a1f' }}>
+                            {el.label}
+                          </span>
+                        </>
+                      )}
+                      
+                      {isSelected && (
+                        <>
+                          <span className="handle" style={{ top: -4, left: -4 }} />
+                          <span className="handle" style={{ top: -4, right: -4 }} />
+                          <span className="handle" style={{ bottom: -4, left: -4 }} />
+                          <span className="handle" style={{ bottom: -4, right: -4 }} />
+                        </>
+                      )}
+                    </div>
+                  )
+                }
+
+                return (
+                  <div
+                    key={el.id}
+                    onMouseDown={(e) => handleElementMouseDown(e, el)}
+                    className={`canvas-el ${el.type === 'field' ? 'field-box' : ''} ${isSelected ? 'selected' : ''} ${el.hidden ? 'hidden-el' : ''}`}
+                    style={{
+                      left: `${el.x}%`,
+                      top: `${el.y}%`,
+                      fontFamily: el.font === 'Amiri' ? "'Amiri', serif" : "'Tajawal', sans-serif",
+                      fontSize: `${el.size}px`,
+                      fontWeight: el.weight || 400,
+                      color: el.color,
+                      textAlign: el.align || 'center',
+                    }}
+                  >
+                    {el.type === 'field' ? `{{${el.key}}}` : el.text}
+                    
+                    {isSelected && (
+                      <>
+                        <span className="handle" style={{ top: -5, left: -5 }} />
+                        <span className="handle" style={{ top: -5, right: -5 }} />
+                        <span className="handle" style={{ bottom: -5, left: -5 }} />
+                        <span className="handle" style={{ bottom: -5, right: -5 }} />
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            
+            <p className="text-center text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
+              اسحب أي عنصر لتغيير موضعه داخل القالب
+            </p>
           </div>
         </div>
-      </nav>
 
-      {/* Public Link Banner */}
-      {cert?.is_open && (
-        <div className="link-banner">
-          <div className="container">
-            <div className="link-banner-inner">
-              <span>
-                <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="2">
-                  <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                رابط الطالب:
-              </span>
-              <code className="link-code">{publicLink}</code>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => { navigator.clipboard.writeText(publicLink); showToast('تم نسخ الرابط ✓') }}
-                id="copy-link-btn"
-              >
-                نسخ
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="container edit-container">
-        {/* Tabs */}
-        <div className="tabs">
-          <button
-            className={`tab-btn ${activeTab === 'template' ? 'active' : ''}`}
-            onClick={() => setActiveTab('template')}
-            id="tab-template"
-          >
-            ✏️ تصميم القالب
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'form' ? 'active' : ''}`}
-            onClick={() => setActiveTab('form')}
-            id="tab-form"
-          >
-            📋 بناء النموذج ({formFields.length})
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-            id="tab-settings"
-          >
-            ⚙️ إعدادات الإجازة
-          </button>
-        </div>
-
-        {activeTab === 'template' && (
-          <div className="tab-content page-content">
-            <div className="tab-hint">
-              <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" strokeLinecap="round" />
-              </svg>
-              اكتب نص الشهادة في المنطقة البيضاء أدناه. استخدم <strong>&#123;&#123;متغير&#125;&#125;</strong> لإضافة بيانات الطالب تلقائياً.
-            </div>
-            <TemplateEditor
-              value={templateHtml}
-              onChange={setTemplateHtml}
-              assets={assets}
-            />
-          </div>
-        )}
-
-        {activeTab === 'form' && (
-          <div className="tab-content page-content">
-            <div className="tab-hint">
-              <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" strokeLinecap="round" />
-              </svg>
-              أضف حقولاً للنموذج الذي سيملؤه الطالب. تأكد من مطابقة <strong>المتغير</strong> للـ &#123;&#123;متغير&#125;&#125; في القالب.
-            </div>
-            <div className="card" style={{ padding: '1.5rem' }}>
-              <FormBuilder fields={formFields} onChange={setFormFields} />
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'settings' && (
-          <div className="tab-content page-content">
-            <div className="tab-hint">
-              <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" strokeLinecap="round" />
-              </svg>
-              تعديل تفاصيل الإجازة وتعيين خيارات الإغلاق التلقائي للنموذج. انقر على "حفظ" لحفظ التغييرات.
-            </div>
-            <div className="card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div className="form-group">
-                <label className="form-label" htmlFor="edit-title" style={{ fontWeight: 600 }}>اسم الإجازة *</label>
-                <input
-                  id="edit-title"
-                  className="form-input"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="مثال: إجازة دورة تعليم القرآن الكريم"
-                  required
-                />
+        {/* الشريط الجانبي الأيسر: لوحة الخصائص والإعدادات */}
+        <aside className="panel order-3 w-full lg:w-80 flex-shrink-0 p-5 overflow-y-auto text-right" style={{ background: 'var(--bg-card)', borderRight: '1px solid var(--border-gold)' }}>
+          {!selected ? (
+            <div className="flex flex-col gap-5">
+              <div>
+                <p className="font-amiri text-lg font-bold" style={{ color: 'var(--navy-dark)' }}>
+                  إعدادات الإجازة
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  انقر على أي عنصر داخل القالب لتعديل خصائصه وتنسيقه
+                </p>
               </div>
 
+              {/* Title and Description */}
               <div className="form-group">
-                <label className="form-label" htmlFor="edit-desc" style={{ fontWeight: 600 }}>الوصف (اختياري)</label>
+                <span className="field-label">الوصف التفصيلي (اختياري)</span>
                 <textarea
-                  id="edit-desc"
                   className="form-textarea"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="وصف مختصر..."
-                  rows={3}
+                  placeholder="وصف مختصر يظهر للطلاب في صفحة التقديم..."
+                  rows={2}
                 />
               </div>
 
-              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
+              <div className="divider" style={{ background: 'var(--border-gold)', height: '1px', margin: '0.5rem 0' }} />
 
+              {/* Orientation */}
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <span className="field-label">اتجاه الصفحة</span>
+                <div className="flex gap-2">
+                  <button
+                    className="flex-1 py-1.5 rounded-lg text-xs font-bold border"
+                    style={orientation === 'landscape' ? { background: 'var(--navy-dark)', color: '#e9c969', borderColor: 'var(--navy-dark)' } : { borderColor: 'var(--border-gold)', color: 'var(--text-muted)' }}
+                    onClick={() => setOrientation('landscape')}
+                  >
+                    أفقي (عرضي)
+                  </button>
+                  <button
+                    className="flex-1 py-1.5 rounded-lg text-xs font-bold border"
+                    style={orientation === 'portrait' ? { background: 'var(--navy-dark)', color: '#e9c969', borderColor: 'var(--navy-dark)' } : { borderColor: 'var(--border-gold)', color: 'var(--text-muted)' }}
+                    onClick={() => setOrientation('portrait')}
+                  >
+                    عمودي (طولي)
+                  </button>
+                </div>
+              </div>
+
+              {/* Background swatch */}
+              <div>
+                <span className="field-label flex items-center gap-1">
+                  <Palette size={13} />
+                  <span>لون خلفية الشهادة</span>
+                </span>
+                <div className="flex gap-2.5">
+                  {BG_SWATCHES.map((c) => (
+                    <button key={c} className={`swatch ${bg === c ? 'active' : ''}`} style={{ background: c }} onClick={() => setBg(c)} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Auto Close Config */}
+              <div className="divider" style={{ background: 'var(--border-gold)', height: '1px', margin: '0.5rem 0' }} />
+              
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                   <input
                     type="checkbox"
                     id="edit-enable-auto-close"
                     checked={autoCloseEnabled}
                     onChange={(e) => setAutoCloseEnabled(e.target.checked)}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                   />
-                  <label htmlFor="edit-enable-auto-close" style={{ fontSize: '0.95rem', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600 }}>
-                    تفعيل الإغلاق التلقائي للنموذج في تاريخ ووقت محددين
+                  <label htmlFor="edit-enable-auto-close" style={{ fontSize: '0.85rem', color: 'var(--text-main)', cursor: 'pointer', fontWeight: 600 }}>
+                    تحديد وقت محدد لإغلاق التقديم
                   </label>
                 </div>
 
                 {autoCloseEnabled && (
-                  <div className="form-group" style={{ maxWidth: '320px', marginRight: '1.8rem' }}>
-                    <label className="form-label" htmlFor="edit-auto-close-at" style={{ fontSize: '0.82rem' }}>تاريخ ووقت الإغلاق</label>
+                  <div className="form-group mt-2">
+                    <label className="form-label" htmlFor="edit-auto-close-at" style={{ fontSize: '0.72rem' }}>تاريخ ووقت الإغلاق</label>
                     <input
                       type="datetime-local"
                       id="edit-auto-close-at"
@@ -792,112 +586,228 @@ export default function EditCertificatePage() {
                       onChange={(e) => setAutoCloseAt(e.target.value)}
                       required
                     />
-                    {autoCloseAt && (
-                      <span style={{ display: 'block', marginTop: '0.5rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                        {new Date(autoCloseAt) > new Date() ? (
-                          <>
-                            يغلق بعد: {' '}
-                            {Math.max(0, Math.floor((new Date(autoCloseAt).getTime() - Date.now()) / (1000 * 60 * 60)))} ساعة و {' '}
-                            {Math.max(0, Math.floor(((new Date(autoCloseAt).getTime() - Date.now()) / (1000 * 60)) % 60))} دقيقة
-                          </>
-                        ) : (
-                          <span style={{ color: 'var(--danger)' }}>تنبيه: هذا الوقت المختار في الماضي، سيغلق التقديم فوراً عند الحفظ!</span>
-                        )}
-                      </span>
-                    )}
                   </div>
                 )}
               </div>
+
+              <div className="divider" style={{ background: 'var(--border-gold)', height: '1px', margin: '0.5rem 0' }} />
+
+              <div className="rounded-xl p-3.5 flex gap-2.5" style={{ background: '#faf1de', border: '1px solid #ecdcae' }}>
+                <Info size={15} style={{ color: '#b07a1f', flexShrink: 0, marginTop: 2 }} />
+                <p className="text-[11px] leading-relaxed text-right" style={{ color: '#7a5c1f' }}>
+                  عناصر "الحقل المتغيّر" تظهر تلقائياً كحقول إدخال للطلاب عند فتح رابط الإجازة لملء بياناتهم.
+                </p>
+              </div>
+
+              {!cert?.is_master && (
+                <button className="btn btn-outline-gold w-full py-2.5 text-xs mt-2" onClick={handleSetMaster}>
+                  اعتماد كقالب رئيسي للمؤسسة
+                </button>
+              )}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="flex flex-col gap-4">
+              {/* Selected Element Controls */}
+              {selected.type === 'static' && (
+                <>
+                  <span className="inline-flex w-fit items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: '#efe9da', color: '#6b6457' }}>
+                    <Type size={11} />
+                    نص ثابت
+                  </span>
+                  <div>
+                    <span className="field-label">محتوى النص</span>
+                    <textarea
+                      className="field-select"
+                      rows={2}
+                      value={selected.text}
+                      onChange={(e) => updateElement(selected.id, { text: e.target.value })}
+                    />
+                  </div>
+                </>
+              )}
+
+              {selected.type === 'field' && (
+                <>
+                  <span className="inline-flex w-fit items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: '#f3e6c0', color: '#9c7a1f' }}>
+                    <span className="font-bold text-[9px]">{"{}"}</span>
+                    حقل متغيّر في النموذج
+                  </span>
+                  <div className="rounded-lg p-2.5 text-[11px] leading-relaxed text-right" style={{ background: '#faf1de', color: '#7a5c1f' }}>
+                    سيقوم الطالب بتعبئة هذا الحقل عند التقديم لتظهر قيمته في هذا الموضع.
+                  </div>
+                  <div>
+                    <span className="field-label">اسم الحقل (تسمية الإدخال)</span>
+                    <input
+                      className="field-select"
+                      value={selected.key}
+                      onChange={(e) => updateElement(selected.id, { key: e.target.value })}
+                    />
+                  </div>
+                </>
+              )}
+
+              {selected.type === 'image' && (
+                <>
+                  <span className="inline-flex w-fit items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: '#f3e6c0', color: '#9c7a1f' }}>
+                    <ImageIcon size={11} />
+                    عنصر ختم / توقيع
+                  </span>
+                  
+                  <div>
+                    <span className="field-label">اسم العنصر</span>
+                    <input
+                      className="field-select"
+                      value={selected.label}
+                      onChange={(e) => updateElement(selected.id, { label: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <span className="field-label">اختر صورة من المحفوظات</span>
+                    {assets.length === 0 ? (
+                      <p className="text-[10px] text-center p-2" style={{ color: 'var(--text-muted)' }}>
+                        لا توجد أختام أو تواقيع محفوظة.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2">
+                        {assets.map((asset) => (
+                          <button
+                            key={asset.id}
+                            className="aspect-square rounded-lg flex items-center justify-center overflow-hidden border p-1"
+                            style={{
+                              background: '#f7f2e7',
+                              borderColor: selected.url === asset.public_url ? 'var(--gold-focus)' : '#e7ddc4',
+                              borderWidth: selected.url === asset.public_url ? '2px' : '1px',
+                            }}
+                            title={asset.name}
+                            onClick={() => updateElement(selected.id, { url: asset.public_url, label: asset.name })}
+                          >
+                            <img src={asset.public_url} alt={asset.name} className="w-full h-full object-contain pointer-events-none" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <Link href="/admin/assets" className="text-[10px] font-bold block mt-2 text-left" style={{ color: 'var(--gold-main)' }}>
+                      رفع صورة جديدة ↗
+                    </Link>
+                  </div>
+
+                  <div>
+                    <span className="field-label">حجم الصورة على الشهادة</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] w-10 text-left" style={{ color: '#9c948a' }}>العرض</span>
+                      <input
+                        type="range"
+                        min="5"
+                        max="35"
+                        value={selected.w}
+                        onChange={(e) => updateElement(selected.id, { w: Number(e.target.value) })}
+                        className="flex-1"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] w-10 text-left" style={{ color: '#9c948a' }}>الارتفاع</span>
+                      <input
+                        type="range"
+                        min="5"
+                        max="35"
+                        value={selected.h}
+                        onChange={(e) => updateElement(selected.id, { h: Number(e.target.value) })}
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Common Typography and Styling Controls (only for text/field types) */}
+              {selected.type !== 'image' && (
+                <>
+                  <div>
+                    <span className="field-label">الخط</span>
+                    <select
+                      className="field-select"
+                      value={selected.font}
+                      onChange={(e) => updateElement(selected.id, { font: e.target.value })}
+                    >
+                      <option value="Amiri">Amiri — خط كلاسيكي</option>
+                      <option value="Tajawal">Tajawal — خط حديث</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <span className="field-label">الحجم ({selected.size}px)</span>
+                    <input
+                      type="range"
+                      min="9"
+                      max="48"
+                      value={selected.size}
+                      onChange={(e) => updateElement(selected.id, { size: Number(e.target.value) })}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <span className="field-label">المحاذاة</span>
+                    <div className="flex gap-2">
+                      <button
+                        className={`align-btn ${selected.align === 'right' ? 'active' : ''}`}
+                        onClick={() => updateElement(selected.id, { align: 'right' })}
+                      >
+                        <AlignRight size={14} />
+                      </button>
+                      <button
+                        className={`align-btn ${selected.align === 'center' ? 'active' : ''}`}
+                        onClick={() => updateElement(selected.id, { align: 'center' })}
+                      >
+                        <AlignCenter size={14} />
+                      </button>
+                      <button
+                        className={`align-btn ${selected.align === 'left' ? 'active' : ''}`}
+                        onClick={() => updateElement(selected.id, { align: 'left' })}
+                      >
+                        <AlignLeft size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="field-label">لون الخط</span>
+                    <div className="flex gap-2">
+                      {COLOR_SWATCHES.map((c) => (
+                        <button
+                          key={c}
+                          className={`swatch ${selected.color === c ? 'active' : ''}`}
+                          style={{ background: c }}
+                          onClick={() => updateElement(selected.id, { color: c })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="divider" style={{ background: 'var(--border-gold)', height: '1px', margin: '0.5rem 0' }} />
+
+              <button
+                className="text-xs font-semibold inline-flex items-center gap-1.5 mt-2"
+                style={{ color: 'var(--danger)' }}
+                onClick={() => deleteElement(selected.id)}
+              >
+                <Trash2 size={13} />
+                <span>حذف هذا العنصر من الشهادة</span>
+              </button>
+            </div>
+          )}
+        </aside>
       </div>
 
+      {/* Toast Notification */}
       {toast && (
-        <div className={`toast toast-${toast.type}`} role="status">{toast.msg}</div>
+        <div className={`toast toast-${toast.type}`} role="status">
+          {toast.msg}
+        </div>
       )}
-
-      <style jsx>{`
-        .edit-page { min-height: 100vh; }
-
-        .link-banner {
-          background: rgba(16, 185, 129, 0.08);
-          border-bottom: 1px solid rgba(16, 185, 129, 0.2);
-          padding: 0.6rem 0;
-        }
-
-        .link-banner-inner {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-          font-size: 0.9rem;
-          color: var(--text-secondary);
-        }
-
-        .link-code {
-          background: var(--bg-input);
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          padding: 0.2rem 0.6rem;
-          font-size: 0.82rem;
-          color: var(--primary-light);
-          direction: ltr;
-          flex: 1;
-          min-width: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .edit-container {
-          padding-top: 1.5rem;
-          padding-bottom: 4rem;
-        }
-
-        .tabs {
-          display: flex;
-          gap: 0.5rem;
-          margin-bottom: 1.5rem;
-          border-bottom: 1px solid var(--border);
-          padding-bottom: 0;
-        }
-
-        .tab-btn {
-          background: transparent;
-          border: none;
-          border-bottom: 3px solid transparent;
-          padding: 0.65rem 1.2rem;
-          font-family: 'Cairo', sans-serif;
-          font-size: 0.95rem;
-          font-weight: 600;
-          color: var(--text-muted);
-          cursor: pointer;
-          transition: all 0.2s;
-          margin-bottom: -1px;
-        }
-
-        .tab-btn:hover { color: var(--text-primary); }
-        .tab-btn.active {
-          color: var(--primary-light);
-          border-bottom-color: var(--primary);
-        }
-
-        .tab-content { margin-top: 0.5rem; }
-
-        .tab-hint {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: rgba(108, 71, 255, 0.08);
-          border: 1px solid rgba(108, 71, 255, 0.2);
-          border-radius: 8px;
-          padding: 0.65rem 1rem;
-          font-size: 0.88rem;
-          color: var(--text-secondary);
-          margin-bottom: 1rem;
-        }
-      `}</style>
     </div>
   )
 }

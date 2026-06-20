@@ -3,8 +3,47 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import type { Certificate, FormField } from '@/lib/types'
+import { ArrowLeft, Award, Calendar, Check, Download, AlertTriangle, Clock } from 'lucide-react'
 
 type Step = 'form' | 'generating' | 'certificate'
+
+/* ---------------------------------- عناصر زخرفية ---------------------------------- */
+
+function CornerOrnament({ corner }: { corner: 'tl' | 'tr' | 'br' | 'bl' }) {
+  const rotations = { tl: 0, tr: 90, br: 180, bl: 270 }
+  const pos = {
+    tl: { top: 10, left: 10 },
+    tr: { top: 10, right: 10 },
+    br: { bottom: 10, right: 10 },
+    bl: { bottom: 10, left: 10 },
+  }[corner]
+  return (
+    <svg
+      viewBox="0 0 30 30"
+      className="absolute w-7 h-7 pointer-events-none"
+      style={{ ...pos, transform: `rotate(${rotations[corner]}deg)` }}
+    >
+      <path d="M2,28 L2,10 Q2,2 10,2 L28,2" fill="none" stroke="#c9a227" strokeWidth="1.5" />
+      <circle cx="2" cy="28" r="1.6" fill="#c9a227" />
+    </svg>
+  )
+}
+
+function Watermark() {
+  return (
+    <svg
+      viewBox="0 0 400 400"
+      className="pointer-events-none absolute -top-10 -right-10 w-72 h-72 opacity-[0.03]"
+      aria-hidden="true"
+    >
+      <g transform="translate(200,200)">
+        <rect x="-110" y="-110" width="220" height="220" fill="none" stroke="#16243f" strokeWidth="3" transform="rotate(0)" />
+        <rect x="-110" y="-110" width="220" height="220" fill="none" stroke="#16243f" strokeWidth="3" transform="rotate(45)" />
+        <circle r="150" fill="none" stroke="#16243f" strokeWidth="2" />
+      </g>
+    </svg>
+  )
+}
 
 export default function StudentCertificatePage() {
   const { id } = useParams<{ id: string }>()
@@ -23,6 +62,7 @@ export default function StudentCertificatePage() {
     setTimeout(() => setToast(null), 3000)
   }
 
+  // Load Certificate Config
   const loadCert = useCallback(async () => {
     try {
       const res = await fetch(`/api/certificates/${id}`)
@@ -34,7 +74,7 @@ export default function StudentCertificatePage() {
       const initialData: Record<string, string> = {}
       data.form_fields?.forEach((f: FormField) => {
         if (f.type === 'date') {
-          initialData[f.variable] = new Date().toLocaleDateString('ar-SA')
+          initialData[f.variable] = new Date().toLocaleDateString('ar-EG')
         }
       })
       setFormData(initialData)
@@ -49,6 +89,7 @@ export default function StudentCertificatePage() {
     loadCert()
   }, [loadCert])
 
+  // Countdown timer calculations
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
 
   useEffect(() => {
@@ -78,29 +119,32 @@ export default function StudentCertificatePage() {
     return () => clearInterval(interval)
   }, [cert])
 
-  const isClosed = cert ? (!cert.is_open || (cert.auto_close_at && (timeLeft !== null ? timeLeft <= 0 : new Date() > new Date(cert.auto_close_at)))) : false
+  const isClosed = cert
+    ? (!cert.is_open || (cert.auto_close_at && (timeLeft !== null ? timeLeft <= 0 : new Date() > new Date(cert.auto_close_at))))
+    : false
 
   function validate(): boolean {
     const newErrors: Record<string, string> = {}
     cert?.form_fields?.forEach((field) => {
       if (field.required && !formData[field.variable]?.trim()) {
-        newErrors[field.variable] = 'هذا الحقل مطلوب'
+        newErrors[field.variable] = 'هذا الحقل مطلوب لإصدار الشهادة'
       }
     })
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
+  // Fallback HTML string replacement for older templates
   function generateCertificateHtml(data: Record<string, string>): string {
     let html = cert?.template_html || ''
     Object.entries(data).forEach(([key, value]) => {
-      // Escape the variable key for regex
       const escaped = key.replace(/[{}]/g, '\\$&')
       html = html.replace(new RegExp(escaped, 'g'), value)
     })
     return html
   }
 
+  // Handle Form Submission
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) return
@@ -108,7 +152,7 @@ export default function StudentCertificatePage() {
     setStep('generating')
 
     try {
-      // Submit to DB
+      // 1. Submit response to Supabase
       const res = await fetch(`/api/certificates/${id}/submissions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,18 +161,20 @@ export default function StudentCertificatePage() {
 
       if (!res.ok) {
         const errData = await res.json()
-        throw new Error(errData.error || 'فشل الإرسال')
+        throw new Error(errData.error || 'فشل إرسال البيانات للرئيسية')
       }
 
-      // Generate HTML certificate
-      const html = generateCertificateHtml(formData)
-      setGeneratedHtml(html)
+      // If it's a legacy template, prepare the HTML fallback
+      if (cert && cert.template_html && !cert.template_html.startsWith('{')) {
+        const html = generateCertificateHtml(formData)
+        setGeneratedHtml(html)
+      }
 
-      // Small delay for UX
-      await new Promise(r => setTimeout(r, 1500))
+      // Small delay for UX transition
+      await new Promise((r) => setTimeout(r, 1600))
       setStep('certificate')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'حدث خطأ'
+      const msg = err instanceof Error ? err.message : 'حدث خطأ غير متوقع'
       showToast(msg, 'error')
       setStep('form')
     } finally {
@@ -136,26 +182,36 @@ export default function StudentCertificatePage() {
     }
   }
 
+  // Download PDF
   async function handleDownloadPDF() {
-    showToast('جاري تحضير ملف PDF...')
+    showToast('جاري تحضير ملف الإجازة PDF...')
 
     try {
-      // Dynamically import to avoid SSR issues
       const html2canvas = (await import('html2canvas')).default
       const jsPDF = (await import('jspdf')).default
 
       if (!certRef.current) return
 
       const canvas = await html2canvas(certRef.current, {
-        scale: 2,
+        scale: 2.2, // high quality
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff',
+        backgroundColor: null,
       })
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95)
+      const imgData = canvas.toDataURL('image/png')
+      
+      // Determine orientation dynamically based on layout config
+      let isLandscape = true
+      if (cert && cert.template_html && cert.template_html.startsWith('{')) {
+        try {
+          const config = JSON.parse(cert.template_html)
+          isLandscape = config.orientation === 'landscape'
+        } catch {}
+      }
+
       const pdf = new jsPDF({
-        orientation: 'portrait',
+        orientation: isLandscape ? 'landscape' : 'portrait',
         unit: 'mm',
         format: 'a4',
       })
@@ -163,32 +219,35 @@ export default function StudentCertificatePage() {
       const pdfWidth = pdf.internal.pageSize.getWidth()
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width
 
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight)
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
       pdf.save(`إجازة_${cert?.title || 'شهادة'}.pdf`)
-      showToast('تم تحميل الشهادة بنجاح ✓')
-    } catch {
-      showToast('فشل تحميل PDF، جرب حفظ الصفحة يدوياً', 'error')
+      showToast('تم تحميل ملف PDF بنجاح ✓')
+    } catch (err) {
+      console.error(err)
+      showToast('فشل توليد PDF تلقائياً، يمكنك حفظ الصفحة يدوياً', 'error')
     }
   }
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="loading-screen">
+      <div className="loading-screen text-center flex flex-col items-center justify-center min-h-screen content-bg">
         <div className="spinner" />
-        <span>جاري التحميل...</span>
+        <span>جاري تحميل نموذج الإجازة...</span>
       </div>
     )
   }
 
-  // ── Not found or closed ───────────────────────────────────────────────────
   if (!cert) {
     return (
-      <div className="student-page">
-        <div className="not-found-box card-glass">
+      <div className="min-h-screen content-bg flex items-center justify-center p-4">
+        <div className="card-formal p-8 text-center max-w-[400px]">
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚫</div>
-          <h2>الإجازة غير موجودة</h2>
-          <p>الرابط الذي فتحته غير صحيح أو الإجازة محذوفة.</p>
+          <h2 className="font-amiri text-xl font-bold mb-2" style={{ color: 'var(--navy-dark)' }}>
+            الإجازة غير موجودة
+          </h2>
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            الرابط الذي فتحته غير صحيح، أو تم إلغاء هذه الإجازة من قبل الإدارة.
+          </p>
         </div>
       </div>
     )
@@ -196,120 +255,225 @@ export default function StudentCertificatePage() {
 
   if (isClosed) {
     return (
-      <div className="student-page">
-        <div className="not-found-box card-glass">
+      <div className="min-h-screen content-bg flex items-center justify-center p-4">
+        <div className="card-formal p-8 text-center max-w-[400px]">
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔒</div>
-          <h2>التقديم مغلق</h2>
-          <p>انتهى وقت التقديم على هذه الإجازة.</p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>{cert.title}</p>
+          <h2 className="font-amiri text-xl font-bold mb-2" style={{ color: 'var(--navy-dark)' }}>
+            استقبال الردود مغلق
+          </h2>
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            انتهى وقت التقديم المخصص لهذه الدورة/الإجازة.
+          </p>
+          <div className="divider-rule my-3">
+            <div className="line" />
+            <div className="diamond" />
+            <div className="line" />
+          </div>
+          <p className="text-[11px] font-bold" style={{ color: 'var(--navy-dark)' }}>{cert.title}</p>
         </div>
       </div>
     )
   }
 
-  // ── Generating ────────────────────────────────────────────────────────────
   if (step === 'generating') {
     return (
-      <div className="student-page">
-        <div className="not-found-box card-glass">
-          <div className="generating-animation">
-            <div className="cert-icon">📜</div>
-            <div className="generating-dots">
-              <span />
-              <span />
-              <span />
-            </div>
+      <div className="min-h-screen content-bg flex items-center justify-center p-4">
+        <div className="card-formal p-8 text-center max-w-[400px] flex flex-col items-center">
+          <div className="generating-animation mb-4">
+            <Award size={48} className="animate-bounce" style={{ color: 'var(--gold-main)' }} />
           </div>
-          <h2>جاري إنشاء شهادتك</h2>
-          <p>يرجى الانتظار لحظة...</p>
+          <h2 className="font-amiri text-xl font-bold mb-1" style={{ color: 'var(--navy-dark)' }}>
+            جاري توليد إجازتك الرقمية
+          </h2>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            نقوم بختم وتوثيق شهادتك حالياً، الرجاء عدم إغلاق الصفحة...
+          </p>
         </div>
       </div>
     )
   }
 
-  // ── Certificate View ──────────────────────────────────────────────────────
+  // ── عرض الشهادة وتنزيلها ────────────────────────────────────────────────
   if (step === 'certificate') {
+    let builderConfig: any = null
+    const isJsonTemplate = cert.template_html && cert.template_html.startsWith('{')
+    if (isJsonTemplate) {
+      try {
+        builderConfig = JSON.parse(cert.template_html)
+      } catch {}
+    }
+
     return (
-      <div className="student-page certificate-page">
-        <div className="certificate-actions-bar">
-          <div className="container" style={{ maxWidth: '900px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-              <div>
-                <h2 style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>🎉 تهانينا! شهادتك جاهزة</h2>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{cert.title}</p>
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <button className="btn btn-secondary" onClick={() => { setStep('form'); setGeneratedHtml('') }}>
-                  ← العودة للنموذج
-                </button>
-                <button className="btn btn-primary btn-lg" onClick={handleDownloadPDF} id="download-pdf-btn">
-                  <svg viewBox="0 0 24 24" fill="none" width="18" height="18" stroke="currentColor" strokeWidth="2">
-                    <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  تحميل PDF
-                </button>
-              </div>
+      <div className="min-h-screen flex flex-col" style={{ background: '#1c1c1f' }}>
+        {/* شريط الإجراءات */}
+        <div className="bg-[#121214] border-b border-[#2d2d30] py-4 px-6 sticky top-0 z-50 text-right">
+          <div className="container max-w-[900px] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="font-amiri text-lg font-bold text-white leading-tight">
+                🎉 تهانينا! صدرت إجازتك بنجاح
+              </h2>
+              <p className="text-[11px]" style={{ color: '#a0a0c0' }}>{cert.title}</p>
+            </div>
+            <div className="flex gap-2.5">
+              <button
+                className="btn btn-secondary border-[#444] text-[#ccc] hover:bg-[#222]"
+                onClick={() => {
+                  setStep('form')
+                  setGeneratedHtml('')
+                }}
+              >
+                ← تعديل البيانات
+              </button>
+              <button className="btn btn-gold px-6 py-2.5" onClick={handleDownloadPDF}>
+                <Download size={16} />
+                <span>تحميل كملف PDF للطباعة</span>
+              </button>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 1rem 4rem', background: 'var(--bg-surface)', minHeight: 'calc(100vh - 80px)' }}>
-          <div
-            ref={certRef}
-            dangerouslySetInnerHTML={{ __html: generatedHtml }}
-            className="certificate-a4"
-            id="generated-certificate"
-          />
+        {/* عرض الورقة */}
+        <div className="flex-1 flex justify-center items-start p-6 lg:p-12 overflow-auto">
+          {isJsonTemplate && builderConfig ? (
+            <div
+              ref={certRef}
+              className="certificate-a4 relative flex-shrink-0"
+              style={{
+                background: builderConfig.bg || '#fffdf8',
+                aspectRatio: builderConfig.orientation === 'landscape' ? '1.414 / 1' : '1 / 1.414',
+                width: builderConfig.orientation === 'landscape' ? '297mm' : '210mm',
+                height: builderConfig.orientation === 'landscape' ? '210mm' : '297mm',
+                border: '2px solid var(--gold-focus)',
+              }}
+            >
+              <div className="absolute inset-2.5 pointer-events-none" style={{ border: '1px dashed var(--gold-focus)', opacity: 0.4 }} />
+              <CornerOrnament corner="tl" />
+              <CornerOrnament corner="tr" />
+              <CornerOrnament corner="br" />
+              <CornerOrnament corner="bl" />
+
+              {builderConfig.elements.map((el: any) => {
+                if (el.hidden) return null
+                
+                let textValue = el.text
+                if (el.type === 'field') {
+                  textValue = formData[el.key] || el.text
+                }
+
+                if (el.type === 'image') {
+                  return (
+                    <div
+                      key={el.id}
+                      className="absolute flex items-center justify-center overflow-hidden"
+                      style={{
+                        left: `${el.x}%`,
+                        top: `${el.y}%`,
+                        width: `${el.w}%`,
+                        height: `${el.h}%`,
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                    >
+                      {el.url && <img src={el.url} alt={el.label} className="w-full h-full object-contain pointer-events-none" />}
+                    </div>
+                  )
+                }
+
+                return (
+                  <div
+                    key={el.id}
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: `${el.x}%`,
+                      top: `${el.y}%`,
+                      transform: 'translate(-50%, -50%)',
+                      fontFamily: el.font === 'Amiri' ? "'Amiri', serif" : "'Tajawal', sans-serif",
+                      fontSize: `${el.size}px`,
+                      fontWeight: el.weight || 400,
+                      color: el.color,
+                      textAlign: el.align || 'center',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {textValue}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            /* Fallback rendering for HTML legacy certificates */
+            <div
+              ref={certRef}
+              dangerouslySetInnerHTML={{ __html: generatedHtml }}
+              className="certificate-a4"
+              id="generated-certificate"
+              style={{ width: '210mm', minHeight: '297mm' }}
+            />
+          )}
         </div>
 
-        {toast && <div className={`toast toast-${toast.type}`} role="status">{toast.msg}</div>}
+        {toast && <div className="toast toast-success" style={{ position: 'fixed', bottom: '2rem' }}>{toast.msg}</div>}
       </div>
     )
   }
 
-  // ── Form ──────────────────────────────────────────────────────────────────
+  // ── نموذج إدخال البيانات للطلاب ──────────────────────────────────────────
   return (
-    <div className="student-page">
-      <div className="student-form-container">
-        {/* Header */}
-        <div className="student-header card-glass">
-          <div className="cert-badge">📜</div>
-          <h1>{cert.title}</h1>
-          {cert.description && <p>{cert.description}</p>}
+    <div className="min-h-screen content-bg flex flex-col items-center justify-center p-4 py-12">
+      <Watermark />
+
+      <div className="w-full max-w-[560px] flex flex-col gap-6 relative z-10">
+        
+        {/* ترويسة النموذج */}
+        <div className="card-formal p-6 text-center" style={{ background: 'var(--bg-card)' }}>
+          <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(201,162,39,0.15)', border: '2px solid var(--gold-focus)' }}>
+            <Award size={26} style={{ color: 'var(--gold-main)' }} />
+          </div>
+          <h1 className="font-amiri text-2xl font-bold mb-1" style={{ color: 'var(--navy-dark)' }}>
+            {cert.title}
+          </h1>
+          {cert.description && (
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              {cert.description}
+            </p>
+          )}
         </div>
 
+        {/* مؤقت العد التنازلي التلقائي */}
         {timeLeft !== null && timeLeft > 0 && (
-          <div className="countdown-banner card-glass">
-            <div className="countdown-title">⏱️ ينتهي التقديم تلقائياً خلال:</div>
-            <div className="countdown-timer">
-              <div className="timer-segment">
-                <span className="timer-val">{String(Math.floor(timeLeft / 3600)).padStart(2, '0')}</span>
-                <span className="timer-lbl">ساعة</span>
+          <div className="countdown-banner card-formal p-3 flex flex-col items-center justify-center" style={{ background: 'var(--warning-bg)', borderColor: 'rgba(245,158,11,0.2)' }}>
+            <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: 'var(--warning)' }}>
+              <Clock size={14} />
+              <span>ينتهي استقبال الردود تلقائياً خلال:</span>
+            </div>
+            <div className="flex gap-4 mt-2 direction-ltr font-mono text-lg font-bold" style={{ color: 'var(--warning)' }}>
+              <div className="text-center">
+                <span>{String(Math.floor(timeLeft / 3600)).padStart(2, '0')}</span>
+                <span className="block text-[8px] opacity-75">ساعة</span>
               </div>
-              <div className="timer-colon">:</div>
-              <div className="timer-segment">
-                <span className="timer-val">{String(Math.floor((timeLeft % 3600) / 60)).padStart(2, '0')}</span>
-                <span className="timer-lbl">دقيقة</span>
+              <span>:</span>
+              <div className="text-center">
+                <span>{String(Math.floor((timeLeft % 3600) / 60)).padStart(2, '0')}</span>
+                <span className="block text-[8px] opacity-75">دقيقة</span>
               </div>
-              <div className="timer-colon">:</div>
-              <div className="timer-segment">
-                <span className="timer-val">{String(timeLeft % 60).padStart(2, '0')}</span>
-                <span className="timer-lbl">ثانية</span>
+              <span>:</span>
+              <div className="text-center">
+                <span>{String(timeLeft % 60).padStart(2, '0')}</span>
+                <span className="block text-[8px] opacity-75">ثانية</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Form */}
-        <div className="card-glass student-form-card">
-          <h2 style={{ marginBottom: '1.5rem', fontSize: '1.15rem' }}>
-            أدخل بياناتك لاستلام الإجازة
+        {/* حقول النموذج */}
+        <div className="card-formal p-8" style={{ background: 'var(--bg-card)' }}>
+          <h2 className="font-amiri text-lg font-bold mb-5 border-b pb-2 text-right" style={{ color: 'var(--navy-dark)', borderColor: 'var(--border-gold)' }}>
+            أدخل بياناتك لاستلام إجازتك الرقمية
           </h2>
 
-          <form onSubmit={handleSubmit} noValidate>
+          <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 text-right">
             {cert.form_fields?.length === 0 ? (
-              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
-                لا توجد حقول في هذا النموذج
+              <div className="text-center text-xs py-6" style={{ color: 'var(--text-muted)' }}>
+                لا توجد حقول مطلوب إدخالها لهذا النموذج.
               </div>
             ) : (
               cert.form_fields?.map((field) => (
@@ -330,7 +494,7 @@ export default function StudentCertificatePage() {
                       }}
                       placeholder={field.placeholder}
                       required={field.required}
-                      rows={4}
+                      rows={3}
                     />
                   ) : field.type === 'select' ? (
                     <select
@@ -343,7 +507,7 @@ export default function StudentCertificatePage() {
                       }}
                       required={field.required}
                     >
-                      <option value="">اختر...</option>
+                      <option value="">اختر من القائمة...</option>
                       {field.options?.map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
@@ -364,7 +528,7 @@ export default function StudentCertificatePage() {
                   )}
 
                   {errors[field.variable] && (
-                    <span style={{ color: 'var(--danger)', fontSize: '0.82rem', marginTop: '0.25rem' }}>
+                    <span className="text-xs font-semibold mt-1 block" style={{ color: 'var(--danger)' }}>
                       {errors[field.variable]}
                     </span>
                   )}
@@ -374,22 +538,18 @@ export default function StudentCertificatePage() {
 
             <button
               type="submit"
-              className="btn btn-primary btn-lg"
+              className="btn btn-gold btn-lg w-full flex items-center justify-center gap-2 mt-4"
               disabled={submitting}
-              id="submit-form-btn"
-              style={{ width: '100%', marginTop: '0.5rem' }}
             >
               {submitting ? (
                 <>
                   <span className="spinner" style={{ width: '1.1rem', height: '1.1rem', borderWidth: '2px' }} />
-                  جاري الإرسال...
+                  <span>جاري إرسال الطلب...</span>
                 </>
               ) : (
                 <>
-                  <svg viewBox="0 0 24 24" fill="none" width="18" height="18" stroke="currentColor" strokeWidth="2">
-                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  إرسال واستلام الإجازة
+                  <Check size={18} />
+                  <span>تقديم الطلب وإصدار الإجازة</span>
                 </>
               )}
             </button>
@@ -398,153 +558,6 @@ export default function StudentCertificatePage() {
       </div>
 
       {toast && <div className={`toast toast-${toast.type}`} role="status">{toast.msg}</div>}
-
-      <style jsx>{`
-        .student-page {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 2rem 1rem 4rem;
-        }
-
-        .student-form-container {
-          width: 100%;
-          max-width: 600px;
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-        }
-
-        .student-header {
-          text-align: center;
-          padding: 2rem;
-        }
-
-        .cert-badge {
-          font-size: 3.5rem;
-          margin-bottom: 1rem;
-          filter: drop-shadow(0 0 20px rgba(108, 71, 255, 0.4));
-        }
-
-        .student-header h1 {
-          font-size: 1.7rem;
-          margin-bottom: 0.5rem;
-          background: linear-gradient(135deg, var(--text-primary), var(--primary-light));
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-
-        .student-form-card { padding: 2rem; }
-
-        .not-found-box {
-          max-width: 400px;
-          width: 100%;
-          text-align: center;
-          padding: 3rem 2rem;
-          margin-top: 20vh;
-        }
-
-        .not-found-box h2 { margin-bottom: 0.5rem; }
-
-        .certificate-page { padding: 0; }
-
-        .certificate-actions-bar {
-          background: rgba(17, 17, 30, 0.95);
-          backdrop-filter: blur(20px);
-          border-bottom: 1px solid var(--border);
-          padding: 1rem 1.5rem;
-          position: sticky;
-          top: 0;
-          z-index: 100;
-        }
-
-        /* Generating animation */
-        .generating-animation {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .cert-icon {
-          font-size: 4rem;
-          animation: bounce 0.8s infinite alternate;
-        }
-
-        @keyframes bounce {
-          from { transform: translateY(0); }
-          to { transform: translateY(-10px); }
-        }
-
-        .generating-dots {
-          display: flex;
-          gap: 6px;
-        }
-
-        .generating-dots span {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: var(--primary);
-          animation: dot 1s infinite;
-        }
-
-        .generating-dots span:nth-child(2) { animation-delay: 0.2s; }
-        .generating-dots span:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes dot {
-          0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-          40% { transform: scale(1); opacity: 1; }
-        }
-
-        .countdown-banner {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 1rem;
-          background: rgba(245, 158, 11, 0.08);
-          border: 1px solid rgba(245, 158, 11, 0.2);
-          border-radius: 12px;
-          text-align: center;
-        }
-        .countdown-title {
-          font-size: 0.85rem;
-          color: var(--text-secondary);
-          font-weight: 600;
-        }
-        .countdown-timer {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          direction: ltr;
-        }
-        .timer-segment {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          min-width: 45px;
-        }
-        .timer-val {
-          font-size: 1.3rem;
-          font-weight: 700;
-          color: #f59e0b;
-          font-family: monospace;
-        }
-        .timer-lbl {
-          font-size: 0.7rem;
-          color: var(--text-muted);
-        }
-        .timer-colon {
-          font-size: 1.2rem;
-          font-weight: 700;
-          color: #f59e0b;
-          margin-bottom: 12px;
-        }
-      `}</style>
     </div>
   )
 }

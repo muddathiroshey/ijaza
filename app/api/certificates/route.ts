@@ -6,7 +6,7 @@ export async function GET() {
     const supabase = getSupabaseAdmin()
     const { data, error } = await supabase
       .from('certificates')
-      .select('*')
+      .select('*, submissions:submissions(count)')
       .order('created_at', { ascending: false })
 
     if (error) throw error
