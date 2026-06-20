@@ -1237,6 +1237,14 @@ export default function EditCertificatePage() {
                           <button
                             type="button"
                             className="text-[#9c3b3b] hover:text-[#7a2e2e] text-xs font-bold px-1"
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              outline: 'none',
+                              boxShadow: 'none',
+                              padding: '0 0.5rem'
+                            }}
                             onClick={() => removeOption(field.id, optIdx)}
                           >
                             حذف
@@ -1313,7 +1321,17 @@ export default function EditCertificatePage() {
                         <button
                           type="button"
                           className="text-[#9c3b3b] hover:text-[#7a2e2e] flex items-center gap-1 text-xs font-bold pr-3 border-r"
-                          style={{ borderColor: 'var(--border-gold)' }}
+                          style={{
+                            borderColor: 'var(--border-gold)',
+                            background: 'transparent',
+                            borderTop: 'none',
+                            borderBottom: 'none',
+                            borderLeft: 'none',
+                            padding: '0 0.75rem 0 0',
+                            cursor: 'pointer',
+                            outline: 'none',
+                            boxShadow: 'none',
+                          }}
                           onClick={() => deleteAdditionalField(field.id)}
                         >
                           <Trash2 size={13} />
