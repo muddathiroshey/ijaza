@@ -976,3 +976,281 @@ body {
   .xl\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   .xl\:col-span-2 { grid-column: span 2 / span 2 !important; }
 }
+
+/* ================================================
+   Custom Date-Time Picker Modal Styles
+   ================================================ */
+.dt-picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(22, 36, 63, 0.55);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.dt-picker-modal {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-gold);
+  box-shadow: 0 20px 40px rgba(22, 36, 63, 0.18);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 620px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dt-picker-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-gold);
+  background: linear-gradient(135deg, #fffdf8 0%, #faf6ec 100%);
+}
+
+.dt-picker-timezone-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background-color: #faf1de;
+  border: 1px solid #ecdcae;
+  color: #7a5c1f;
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.dt-picker-body {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  border-bottom: 1px solid var(--border-gold);
+}
+
+@media (max-width: 560px) {
+  .dt-picker-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dt-calendar-panel {
+  padding: 1.25rem;
+  border-left: 1px solid var(--border-gold);
+}
+
+[dir="ltr"] .dt-calendar-panel {
+  border-left: none;
+  border-right: 1px solid var(--border-gold);
+}
+
+@media (max-width: 560px) {
+  .dt-calendar-panel {
+    border-left: none;
+    border-bottom: 1px solid var(--border-gold);
+  }
+}
+
+.dt-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.dt-calendar-nav-btn {
+  background: transparent;
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-sm);
+  color: var(--navy-dark);
+  padding: 0.35rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.dt-calendar-nav-btn:hover {
+  background: #f7f2e7;
+  border-color: var(--gold-main);
+}
+
+.dt-calendar-month-year {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--navy-dark);
+}
+
+.dt-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.dt-calendar-weekday {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 0.25rem 0;
+}
+
+.dt-calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: var(--transition);
+  color: var(--text-main);
+}
+
+.dt-calendar-day:hover:not(.empty) {
+  background-color: #f7f2e7;
+  color: var(--navy-dark);
+}
+
+.dt-calendar-day.muted {
+  color: #c0b9ad;
+}
+
+.dt-calendar-day.selected {
+  background-color: var(--navy-dark) !important;
+  color: #f3e6c0 !important;
+  font-weight: 700;
+}
+
+.dt-calendar-day.today {
+  border-color: var(--gold-main);
+  color: var(--gold-main);
+}
+
+.dt-time-panel {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  background-color: #faf8f3;
+}
+
+.dt-time-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--navy-dark);
+  margin-bottom: 0.5rem;
+}
+
+.dt-time-display {
+  background-color: #fffdf8;
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  text-align: center;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--navy-dark);
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.dt-time-display span.period {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.dt-time-wheels-container {
+  display: flex;
+  height: 180px;
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  background-color: #fffdf8;
+  overflow: hidden;
+  position: relative;
+}
+
+.dt-time-wheel-col {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-gold) transparent;
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem 0;
+  scroll-behavior: smooth;
+}
+
+.dt-time-wheel-col::-webkit-scrollbar {
+  width: 4px;
+}
+.dt-time-wheel-col::-webkit-scrollbar-thumb {
+  background-color: var(--border-gold);
+  border-radius: 2px;
+}
+
+.dt-time-wheel-col.period-col {
+  border-right: 1px solid var(--border-gold);
+}
+
+[dir="ltr"] .dt-time-wheel-col.period-col {
+  border-right: none;
+  border-left: 1px solid var(--border-gold);
+}
+
+.dt-time-wheel-col.minute-col {
+  border-right: 1px solid var(--border-gold);
+}
+
+[dir="ltr"] .dt-time-wheel-col.minute-col {
+  border-right: none;
+  border-left: 1px solid var(--border-gold);
+}
+
+.dt-time-wheel-btn {
+  background: transparent;
+  border: none;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: center;
+  transition: var(--transition);
+  font-weight: 500;
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+  margin: 1px 0;
+}
+
+.dt-time-wheel-btn:hover {
+  background-color: #f7f2e7;
+  color: var(--navy-dark);
+}
+
+.dt-time-wheel-btn.active {
+  background-color: var(--navy-dark);
+  color: #f3e6c0;
+  font-weight: 700;
+}
+
+.dt-picker-footer {
+  padding: 1rem 1.25rem;
+  background-color: #faf6ec;
+  border-top: 1px solid var(--border-gold);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+

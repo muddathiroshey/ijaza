@@ -23,7 +23,11 @@ import {
   Info,
   Palette,
   ChevronDown,
+  Calendar,
 } from 'lucide-react'
+
+import DateTimePickerModal, { MONTH_NAMES, getHour12 } from './DateTimePickerModal'
+
 
 /* ---------------------------------- عناصر زخرفية ---------------------------------- */
 
@@ -86,6 +90,52 @@ export default function EditCertificatePage() {
   // Auto Close Settings
   const [autoCloseEnabled, setAutoCloseEnabled] = useState(false)
   const [autoCloseAt, setAutoCloseAt] = useState('')
+  const [showDatePicker, setShowDatePicker] = useState(false)
+
+  // Helper to convert UTC ISO string to Mecca Time 'YYYY-MM-DDTHH:MM' string
+  function utcToMeccaString(utcString: string): string {
+    if (!utcString) return ''
+    const date = new Date(utcString)
+    const meccaDate = new Date(date.getTime() + 3 * 3600000)
+    const y = meccaDate.getUTCFullYear()
+    const m = String(meccaDate.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(meccaDate.getUTCDate()).padStart(2, '0')
+    const h = String(meccaDate.getUTCHours()).padStart(2, '0')
+    const min = String(meccaDate.getUTCMinutes()).padStart(2, '0')
+    return `${y}-${m}-${d}T${h}:${min}`
+  }
+
+  // Helper to convert Mecca Time 'YYYY-MM-DDTHH:MM' string back to UTC ISO string
+  function meccaStringToUtc(meccaString: string): string {
+    if (!meccaString) return ''
+    const [datePart, timePart] = meccaString.split('T')
+    const [y, m, d] = datePart.split('-').map(Number)
+    const [h, min] = timePart.split(':').map(Number)
+    const utcDate = new Date(Date.UTC(y, m - 1, d, h, min))
+    const finalDate = new Date(utcDate.getTime() - 3 * 3600000)
+    return finalDate.toISOString()
+  }
+
+  // Helper to format Mecca string into friendly Arabic text
+  function formatArabicDateTime(meccaString: string): string {
+    if (!meccaString) return 'اختر التاريخ والوقت...'
+    try {
+      const [datePart, timePart] = meccaString.split('T')
+      const [y, m, d] = datePart.split('-').map(Number)
+      const [h24, min] = timePart.split(':').map(Number)
+      
+      const monthName = MONTH_NAMES[m - 1]
+      const { hour12, period } = getHour12(h24)
+      const periodArabic = period === 'AM' ? 'ص' : 'م'
+      const minStr = String(min).padStart(2, '0')
+      const hourStr = String(hour12).padStart(2, '0')
+      
+      return `${d} ${monthName} ${y}، الساعة ${hourStr}:${minStr} ${periodArabic}`
+    } catch {
+      return meccaString
+    }
+  }
+
 
   // Drag Refs
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -134,10 +184,7 @@ export default function EditCertificatePage() {
       // Initialize Auto Close Settings
       if (certData.auto_close_at) {
         setAutoCloseEnabled(true)
-        const localDate = new Date(certData.auto_close_at)
-        const tzOffset = localDate.getTimezoneOffset() * 60000
-        const localISOTime = new Date(localDate.getTime() - tzOffset).toISOString().slice(0, 16)
-        setAutoCloseAt(localISOTime)
+        setAutoCloseAt(utcToMeccaString(certData.auto_close_at))
       } else {
         setAutoCloseEnabled(false)
         setAutoCloseAt('')
@@ -250,7 +297,7 @@ export default function EditCertificatePage() {
           description,
           template_html: configJson,
           form_fields: formFields,
-          auto_close_at: autoCloseEnabled && autoCloseAt ? new Date(autoCloseAt).toISOString() : null,
+          auto_close_at: autoCloseEnabled && autoCloseAt ? meccaStringToUtc(autoCloseAt) : null,
         }),
       })
 
@@ -577,15 +624,25 @@ export default function EditCertificatePage() {
 
                 {autoCloseEnabled && (
                   <div className="form-group mt-2">
-                    <label className="form-label" htmlFor="edit-auto-close-at" style={{ fontSize: '0.72rem' }}>تاريخ ووقت الإغلاق</label>
-                    <input
-                      type="datetime-local"
+                    <label className="form-label font-semibold" htmlFor="edit-auto-close-at" style={{ fontSize: '0.72rem' }}>تاريخ ووقت الإغلاق (بتوقيت مكة المكرمة)</label>
+                    <button
+                      type="button"
                       id="edit-auto-close-at"
-                      className="form-input"
-                      value={autoCloseAt}
-                      onChange={(e) => setAutoCloseAt(e.target.value)}
-                      required
-                    />
+                      className="form-input text-right flex items-center justify-between w-full"
+                      onClick={() => setShowDatePicker(true)}
+                      style={{
+                        background: '#fffdf8',
+                        border: '1px solid var(--border-gold)',
+                        padding: '0.65rem 0.9rem',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        color: autoCloseAt ? 'var(--text-main)' : 'var(--text-muted)'
+                      }}
+                    >
+                      <span>{formatArabicDateTime(autoCloseAt)}</span>
+                      <Calendar size={14} className="text-[#b8923a]" />
+                    </button>
                   </div>
                 )}
               </div>
@@ -801,6 +858,14 @@ export default function EditCertificatePage() {
           )}
         </aside>
       </div>
+
+      {/* Date Time Picker Modal */}
+      <DateTimePickerModal
+        isOpen={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        value={autoCloseAt}
+        onChange={setAutoCloseAt}
+      />
 
       {/* Toast Notification */}
       {toast && (
