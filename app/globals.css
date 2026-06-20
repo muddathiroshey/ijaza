@@ -758,9 +758,13 @@ body {
   white-space: nowrap !important;
 }
 
-/* Animations */
+/* Animations & Extras */
 .transition-transform { transition-property: transform !important; }
 .duration-200 { transition-duration: 200ms !important; }
+.flex-initial { flex: 0 1 auto !important; }
+.order-1 { order: 1 !important; }
+.order-2 { order: 2 !important; }
+.order-3 { order: 3 !important; }
 
 .animate-bounce {
   animation: bounce-anim 1s infinite alternate !important;
@@ -782,6 +786,7 @@ body {
   .sm\:inline { display: inline !important; }
   .sm\:inline-flex { display: inline-flex !important; }
   .sm\:flex-initial { flex: 0 1 auto !important; }
+  .sm\:items-center { align-items: center !important; }
 }
 
 /* Medium Devices (md) */
@@ -798,6 +803,16 @@ body {
   .lg\:static { position: static !important; }
   .lg\:translate-x-0 { transform: translateX(0) !important; }
   .lg\:hidden { display: none !important; }
+  .lg\:flex-row { flex-direction: row !important; }
+  .lg\:order-1 { order: 1 !important; }
+  .lg\:order-2 { order: 2 !important; }
+  .lg\:order-3 { order: 3 !important; }
+  .lg\:w-64 { width: 16rem !important; }
+  .lg\:w-80 { width: 20rem !important; }
+  .lg\:px-7 { padding-left: 1.75rem !important; padding-right: 1.75rem !important; }
+  .lg\:px-8 { padding-left: 2rem !important; padding-right: 2rem !important; }
+  .lg\:p-10 { padding: 2.5rem !important; }
+  .lg\:p-12 { padding: 3rem !important; }
 }
 
 /* Extra Large Devices (xl) */
