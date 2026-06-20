@@ -25,6 +25,7 @@ import {
   ChevronDown,
   ChevronUp,
   Calendar,
+  Clock,
 } from 'lucide-react'
 
 import DateTimePickerModal, { MONTH_NAMES, getHour12 } from './DateTimePickerModal'
@@ -97,6 +98,35 @@ export default function EditCertificatePage() {
   const [viewMode, setViewMode] = useState<'builder' | 'form_editor'>('builder')
   const [formFields, setFormFields] = useState<FormField[]>([])
   const [activeFieldId, setActiveFieldId] = useState<string | null>(null)
+
+  // Countdown Timer state for admin view
+  const [timeLeft, setTimeLeft] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!autoCloseEnabled || !autoCloseAt) {
+      setTimeLeft(null)
+      return
+    }
+
+    const calculateTimeLeft = () => {
+      try {
+        const [datePart, timePart] = autoCloseAt.split('T')
+        const [y, m, d] = datePart.split('-').map(Number)
+        const [h, min] = timePart.split(':').map(Number)
+        const utcDate = new Date(Date.UTC(y, m - 1, d, h, min))
+        const targetTimeMs = utcDate.getTime() - 3 * 3600000 // Convert Mecca (UTC+3) to UTC ms
+        const diffSec = Math.floor((targetTimeMs - Date.now()) / 1000)
+        setTimeLeft(diffSec > 0 ? diffSec : 0)
+      } catch {
+        setTimeLeft(null)
+      }
+    }
+
+    calculateTimeLeft()
+    const timer = setInterval(calculateTimeLeft, 1000)
+    return () => clearInterval(timer)
+  }, [autoCloseEnabled, autoCloseAt])
+
 
   // Synchronize canvas field elements with formFields array
   useEffect(() => {
@@ -502,24 +532,24 @@ export default function EditCertificatePage() {
           />
         </div>
 
-        {/* أزرار التبديل بين المصمم والاستمارة */}
-        <div className="flex border rounded-lg overflow-hidden bg-[#faf8f3]" style={{ borderColor: 'var(--border-gold)' }}>
+        {/* أزرار التبديل بين الإجازة والاستمارة */}
+        <div className="flex p-0.5 border rounded-lg bg-[#f7f2e7] gap-0.5" style={{ borderColor: 'var(--border-gold)' }}>
           <button
             type="button"
-            className={`px-4 py-1.5 text-xs font-bold transition-all ${
+            className={`px-4 py-1.5 text-xs font-bold transition-all rounded-md ${
               viewMode === 'builder'
-                ? 'bg-[#16243f] text-[#f3e6c0]'
+                ? 'bg-white text-[#16243f] shadow-sm border border-[#e7ddc4]'
                 : 'text-[#6b6457] hover:text-[#16243f]'
             }`}
             onClick={() => setViewMode('builder')}
           >
-            المصمم
+            الإجازة
           </button>
           <button
             type="button"
-            className={`px-4 py-1.5 text-xs font-bold transition-all ${
+            className={`px-4 py-1.5 text-xs font-bold transition-all rounded-md ${
               viewMode === 'form_editor'
-                ? 'bg-[#16243f] text-[#f3e6c0]'
+                ? 'bg-white text-[#16243f] shadow-sm border border-[#e7ddc4]'
                 : 'text-[#6b6457] hover:text-[#16243f]'
             }`}
             onClick={() => setViewMode('form_editor')}
@@ -813,6 +843,32 @@ export default function EditCertificatePage() {
                     </button>
                   </div>
                 )}
+
+                {/* مؤقت العد التنازلي للمسؤول في شريط الإعدادات */}
+                {autoCloseEnabled && timeLeft !== null && timeLeft > 0 && (
+                  <div className="countdown-banner rounded-xl p-3 flex flex-col items-center justify-center mt-3 text-right" style={{ background: 'var(--warning-bg)', border: '1px solid #ecdcae' }}>
+                    <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: '#7a5c1f' }}>
+                      <Clock size={13} />
+                      <span>ينتهي استقبال الردود تلقائياً خلال:</span>
+                    </div>
+                    <div className="flex gap-3 mt-2 direction-ltr font-mono text-base font-bold" style={{ color: '#7a5c1f' }}>
+                      <div className="text-center">
+                        <span className="text-sm">{String(Math.floor(timeLeft / 3600)).padStart(2, '0')}</span>
+                        <span className="block text-[7px] opacity-75">ساعة</span>
+                      </div>
+                      <span>:</span>
+                      <div className="text-center">
+                        <span className="text-sm">{String(Math.floor((timeLeft % 3600) / 60)).padStart(2, '0')}</span>
+                        <span className="block text-[7px] opacity-75">دقيقة</span>
+                      </div>
+                      <span>:</span>
+                      <div className="text-center">
+                        <span className="text-sm">{String(timeLeft % 60).padStart(2, '0')}</span>
+                        <span className="block text-[7px] opacity-75">ثانية</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="divider" style={{ background: 'var(--border-gold)', height: '1px', margin: '0.5rem 0' }} />
@@ -1075,6 +1131,32 @@ export default function EditCertificatePage() {
                   onBlur={(e) => { e.target.style.borderBottom = '1.5px solid transparent' }}
                 />
               </div>
+
+              {/* مؤقت العد التنازلي للمسؤول داخل ترويسة الاستمارة */}
+              {autoCloseEnabled && timeLeft !== null && timeLeft > 0 && (
+                <div className="countdown-banner rounded-xl p-3 flex flex-col items-center justify-center mt-3 text-right" style={{ background: 'var(--warning-bg)', border: '1px solid #ecdcae', alignSelf: 'center', width: '100%', maxWidth: '360px' }}>
+                  <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: '#7a5c1f' }}>
+                    <Clock size={13} />
+                    <span>ينتهي استقبال الردود تلقائياً خلال:</span>
+                  </div>
+                  <div className="flex gap-4 mt-2 direction-ltr font-mono text-base font-bold" style={{ color: '#7a5c1f' }}>
+                    <div className="text-center">
+                      <span className="text-sm">{String(Math.floor(timeLeft / 3600)).padStart(2, '0')}</span>
+                      <span className="block text-[8px] opacity-75">ساعة</span>
+                    </div>
+                    <span>:</span>
+                    <div className="text-center">
+                      <span className="text-sm">{String(Math.floor((timeLeft % 3600) / 60)).padStart(2, '0')}</span>
+                      <span className="block text-[8px] opacity-75">دقيقة</span>
+                    </div>
+                    <span>:</span>
+                    <div className="text-center">
+                      <span className="text-sm">{String(timeLeft % 60).padStart(2, '0')}</span>
+                      <span className="block text-[8px] opacity-75">ثانية</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Cards 2+: Form Fields */}

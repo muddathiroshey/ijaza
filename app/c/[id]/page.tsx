@@ -438,31 +438,7 @@ export default function StudentCertificatePage() {
           )}
         </div>
 
-        {/* مؤقت العد التنازلي التلقائي */}
-        {timeLeft !== null && timeLeft > 0 && (
-          <div className="countdown-banner card-formal p-3 flex flex-col items-center justify-center" style={{ background: 'var(--warning-bg)', borderColor: 'rgba(245,158,11,0.2)' }}>
-            <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: 'var(--warning)' }}>
-              <Clock size={14} />
-              <span>ينتهي استقبال الردود تلقائياً خلال:</span>
-            </div>
-            <div className="flex gap-4 mt-2 direction-ltr font-mono text-lg font-bold" style={{ color: 'var(--warning)' }}>
-              <div className="text-center">
-                <span>{String(Math.floor(timeLeft / 3600)).padStart(2, '0')}</span>
-                <span className="block text-[8px] opacity-75">ساعة</span>
-              </div>
-              <span>:</span>
-              <div className="text-center">
-                <span>{String(Math.floor((timeLeft % 3600) / 60)).padStart(2, '0')}</span>
-                <span className="block text-[8px] opacity-75">دقيقة</span>
-              </div>
-              <span>:</span>
-              <div className="text-center">
-                <span>{String(timeLeft % 60).padStart(2, '0')}</span>
-                <span className="block text-[8px] opacity-75">ثانية</span>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* حقول النموذج */}
         <div className="card-formal p-8" style={{ background: 'var(--bg-card)' }}>
