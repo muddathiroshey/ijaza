@@ -157,12 +157,17 @@ function getPagesFromHtml(htmlStr: string): string[] {
 }
 
 const FONT_OPTIONS = [
-  { value: "'Amiri', serif", label: 'Amiri (أميري)' },
-  { value: "'Tajawal', sans-serif", label: 'Tajawal (تجوال)' },
-  { value: "'Cairo', sans-serif", label: 'Cairo (القاهرة)' },
-  { value: "'Reem Kufi', sans-serif", label: 'Reem Kufi (ريم كوفي)' },
-  { value: "'Aref Ruqaa', serif", label: 'Aref Ruqaa (عارف رقعة)' },
-  { value: "'Lalezar', cursive", label: 'Lalezar (لاليزار)' },
+  { value: "'Amiri', serif", label: 'Amiri (نص تجريبي)' },
+  { value: "'Tajawal', sans-serif", label: 'Tajawal (نص تجريبي)' },
+  { value: "'Cairo', sans-serif", label: 'Cairo (نص تجريبي)' },
+  { value: "'Reem Kufi', sans-serif", label: 'Reem Kufi (نص تجريبي)' },
+  { value: "'Aref Ruqaa', serif", label: 'Aref Ruqaa (نص تجريبي)' },
+  { value: "'Lalezar', cursive", label: 'Lalezar (نص تجريبي)' },
+  { value: "'El Messiri', sans-serif", label: 'El Messiri (نص تجريبي)' },
+  { value: "'Changa', sans-serif", label: 'Changa (نص تجريبي)' },
+  { value: "'Almarai', sans-serif", label: 'Almarai (نص تجريبي)' },
+  { value: "'Marhey', sans-serif", label: 'Marhey (نص تجريبي)' },
+  { value: "'Scheherazade New', serif", label: 'Scheherazade New (نص تجريبي)' },
 ]
 
 const SIZE_OPTIONS = [11, 12, 14, 16, 18, 22, 26, 32, 38, 48, 56, 64]
@@ -312,6 +317,380 @@ function extractPlaceholders(html: string): string[] {
 }
 
 /* ====================================================================== */
+/*  مساعدات الألوان والتحويلات                                              */
+/* ====================================================================== */
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const toHex = (c: number) => {
+    const hex = Math.max(0, Math.min(255, c)).toString(16)
+    return hex.length === 1 ? '0' + hex : hex
+  }
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
+function hexToRgb(hex: string) {
+  const cleanHex = hex.replace('#', '')
+  if (cleanHex.length === 3) {
+    const r = parseInt(cleanHex[0] + cleanHex[0], 16)
+    const g = parseInt(cleanHex[1] + cleanHex[1], 16)
+    const b = parseInt(cleanHex[2] + cleanHex[2], 16)
+    return { r, g, b }
+  } else if (cleanHex.length === 6) {
+    const r = parseInt(cleanHex.substring(0, 2), 16)
+    const g = parseInt(cleanHex.substring(2, 4), 16)
+    const b = parseInt(cleanHex.substring(4, 6), 16)
+    return { r, g, b }
+  }
+  return { r: 0, g: 0, b: 0 }
+}
+
+function rgbToHsv(r: number, g: number, b: number) {
+  r /= 255
+  g /= 255
+  b /= 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const d = max - min
+  let h = 0
+  const s = max === 0 ? 0 : d / max
+  const v = max
+
+  if (max !== min) {
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break
+      case g: h = (b - r) / d + 2; break
+      case b: h = (r - g) / d + 4; break
+    }
+    h /= 6
+  }
+  return { h: Math.round(h * 360), s: Math.round(s * 100), v: Math.round(v * 100) }
+}
+
+function hsvToRgb(h: number, s: number, v: number) {
+  s /= 100
+  v /= 100
+  const c = v * s
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const m = v - c
+  let r = 0, g = 0, b = 0
+  if (0 <= h && h < 60) {
+    r = c; g = x; b = 0
+  } else if (60 <= h && h < 120) {
+    r = x; g = c; b = 0
+  } else if (120 <= h && h < 180) {
+    r = 0; g = c; b = x
+  } else if (180 <= h && h < 240) {
+    r = 0; g = x; b = c
+  } else if (240 <= h && h < 300) {
+    r = x; g = 0; b = c
+  } else if (300 <= h && h < 360) {
+    r = c; g = 0; b = x
+  }
+  return {
+    r: Math.round((r + m) * 255),
+    g: Math.round((g + m) * 255),
+    b: Math.round((b + m) * 255),
+  }
+}
+
+function rgbStrToHex(rgbStr: string): string {
+  if (!rgbStr) return '#1f2733'
+  const m = rgbStr.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+(?:\.\d+)?))?\)$/)
+  if (m) {
+    const r = parseInt(m[1], 10)
+    const g = parseInt(m[2], 10)
+    const b = parseInt(m[3], 10)
+    return rgbToHex(r, g, b)
+  }
+  return rgbStr
+}
+
+const PRESET_COLORS = [
+  '#ffffff', '#f3f4f6', '#e5e7eb', '#d1d5db', '#9ca3af', '#6b7280', '#4b5563', '#374151', '#1f2937', '#111827',
+  '#fee2e2', '#ffedd5', '#fef9c3', '#dcfce7', '#ccfbf1', '#e0f2fe', '#dbeafe', '#e0e7ff', '#f3e8ff', '#fae8ff',
+  '#fca5a5', '#fdbb2d', '#fde047', '#86efac', '#5eead4', '#7dd3fc', '#93c5fd', '#a5b4fc', '#c084fc', '#f472b6',
+  '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#0ea5e9', '#3b82f6', '#6366f1', '#a855f7', '#ec4899',
+  '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0d9488', '#0284c7', '#2563eb', '#4f46e5', '#9333ea', '#db2777',
+  '#991b1b', '#9a3412', '#854d0e', '#166534', '#115e59', '#075985', '#1e40af', '#3730a3', '#6b21a8', '#9d174d',
+]
+
+interface SpectrumColorPickerModalProps {
+  isOpen: boolean
+  initialColor: string
+  onClose: () => void
+  onSelectColor: (color: string) => void
+}
+
+function SpectrumColorPickerModal({ isOpen, initialColor, onClose, onSelectColor }: SpectrumColorPickerModalProps) {
+  const svRef = useRef<HTMLDivElement>(null)
+  const [hue, setHue] = useState(0)
+  const [sat, setSat] = useState(100)
+  const [val, setVal] = useState(100)
+
+  const [hexInput, setHexInput] = useState('#ffffff')
+  const [rInput, setRInput] = useState('255')
+  const [gInput, setGInput] = useState('255')
+  const [bInput, setBInput] = useState('255')
+
+  useEffect(() => {
+    if (isOpen) {
+      const color = initialColor || '#1f2733'
+      const rgb = hexToRgb(color)
+      const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b)
+      setHue(hsv.h)
+      setSat(hsv.s)
+      setVal(hsv.v)
+
+      setHexInput(color)
+      setRInput(rgb.r.toString())
+      setGInput(rgb.g.toString())
+      setBInput(rgb.b.toString())
+    }
+  }, [isOpen, initialColor])
+
+  if (!isOpen) return null
+
+  const syncFromHsv = (h: number, s: number, v: number) => {
+    const rgb = hsvToRgb(h, s, v)
+    const hex = rgbToHex(rgb.r, rgb.g, rgb.b)
+    setHexInput(hex)
+    setRInput(rgb.r.toString())
+    setGInput(rgb.g.toString())
+    setBInput(rgb.b.toString())
+  }
+
+  const handleSvMove = (clientX: number, clientY: number) => {
+    if (!svRef.current) return
+    const rect = svRef.current.getBoundingClientRect()
+    const x = Math.max(0, Math.min(rect.width, clientX - rect.left))
+    const y = Math.max(0, Math.min(rect.height, clientY - rect.top))
+    const s = Math.round((x / rect.width) * 100)
+    const v = Math.round((1 - y / rect.height) * 100)
+    setSat(s)
+    setVal(v)
+    syncFromHsv(hue, s, v)
+  }
+
+  const handleSvMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    handleSvMove(e.clientX, e.clientY)
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      handleSvMove(moveEvent.clientX, moveEvent.clientY)
+    }
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }
+
+  const handleHueChange = (newHue: number) => {
+    setHue(newHue)
+    syncFromHsv(newHue, sat, val)
+  }
+
+  const handleHexChange = (valStr: string) => {
+    setHexInput(valStr)
+    const cleanHex = valStr.replace('#', '')
+    if (cleanHex.length === 6 || cleanHex.length === 3) {
+      const rgb = hexToRgb(valStr)
+      const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b)
+      setHue(hsv.h)
+      setSat(hsv.s)
+      setVal(hsv.v)
+      setRInput(rgb.r.toString())
+      setGInput(rgb.g.toString())
+      setBInput(rgb.b.toString())
+    }
+  }
+
+  const handleRgbChange = (channel: 'r' | 'g' | 'b', valStr: string) => {
+    let r = parseInt(channel === 'r' ? valStr : rInput, 10) || 0
+    let g = parseInt(channel === 'g' ? valStr : gInput, 10) || 0
+    let b = parseInt(channel === 'b' ? valStr : bInput, 10) || 0
+
+    r = Math.max(0, Math.min(255, r))
+    g = Math.max(0, Math.min(255, g))
+    b = Math.max(0, Math.min(255, b))
+
+    if (channel === 'r') setRInput(valStr)
+    else if (channel === 'g') setGInput(valStr)
+    else if (channel === 'b') setBInput(valStr)
+
+    const hsv = rgbToHsv(r, g, b)
+    setHue(hsv.h)
+    setSat(hsv.s)
+    setVal(hsv.v)
+    setHexInput(rgbToHex(r, g, b))
+  }
+
+  const currentRgb = hsvToRgb(hue, sat, val)
+  const currentHex = rgbToHex(currentRgb.r, currentRgb.g, currentRgb.b)
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 1000 }} onClick={onClose}>
+      <div
+        className="modal-card p-5"
+        style={{ maxWidth: 320, background: '#fffdf8', direction: 'rtl', borderRadius: '14px' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h4 className="font-amiri text-base font-bold mb-3 text-right" style={{ color: 'var(--navy-dark)' }}>
+          منتقي الألوان المخصص
+        </h4>
+
+        {/* SV box */}
+        <div
+          ref={svRef}
+          onMouseDown={handleSvMouseDown}
+          style={{
+            position: 'relative',
+            width: '100%',
+            height: '150px',
+            backgroundColor: `hsl(${hue}, 100%, 50%)`,
+            borderRadius: '8px',
+            overflow: 'hidden',
+            cursor: 'crosshair',
+            userSelect: 'none'
+          }}
+        >
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #fff, transparent)' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #000, transparent)' }} />
+          <div
+            style={{
+              position: 'absolute',
+              width: '12px',
+              height: '12px',
+              borderRadius: '9999px',
+              border: '2px solid #fff',
+              boxShadow: '0 0 0 1px rgba(0,0,0,0.5)',
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none',
+              left: `${sat}%`,
+              top: `${100 - val}%`,
+              backgroundColor: 'transparent'
+            }}
+          />
+        </div>
+
+        {/* Hue range input */}
+        <div className="mt-3">
+          <input
+            type="range"
+            min="0"
+            max="360"
+            value={hue}
+            onChange={(e) => handleHueChange(parseInt(e.target.value, 10))}
+            style={{
+              width: '100%',
+              height: '10px',
+              borderRadius: '9999px',
+              outline: 'none',
+              appearance: 'none',
+              cursor: 'pointer',
+              background: 'linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)'
+            }}
+          />
+        </div>
+
+        {/* Preview and Text fields */}
+        <div className="flex items-center gap-3 mt-4">
+          <div
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '9999px',
+              backgroundColor: currentHex,
+              border: '1.5px solid #d6cdb0',
+              flexShrink: 0,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+          />
+
+          <div className="flex-1 flex flex-col gap-0.5 text-right">
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>سداسي عشري</span>
+            <input
+              type="text"
+              value={hexInput}
+              onChange={(e) => handleHexChange(e.target.value)}
+              className="field-input"
+              style={{
+                fontFamily: 'monospace',
+                fontSize: '11px',
+                padding: '4px 6px',
+                borderRadius: '6px',
+                textAlign: 'left',
+                direction: 'ltr'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* RGB fields */}
+        <div className="grid grid-cols-3 gap-2 mt-3">
+          <div className="flex flex-col gap-0.5 text-right">
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>أحمر (R)</span>
+            <input
+              type="number"
+              min="0"
+              max="255"
+              value={rInput}
+              onChange={(e) => handleRgbChange('r', e.target.value)}
+              className="field-input text-center"
+              style={{ fontSize: '11px', padding: '4px 6px', borderRadius: '6px' }}
+            />
+          </div>
+          <div className="flex flex-col gap-0.5 text-right">
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>أخضر (G)</span>
+            <input
+              type="number"
+              min="0"
+              max="255"
+              value={gInput}
+              onChange={(e) => handleRgbChange('g', e.target.value)}
+              className="field-input text-center"
+              style={{ fontSize: '11px', padding: '4px 6px', borderRadius: '6px' }}
+            />
+          </div>
+          <div className="flex flex-col gap-0.5 text-right">
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>أزرق (B)</span>
+            <input
+              type="number"
+              min="0"
+              max="255"
+              value={bInput}
+              onChange={(e) => handleRgbChange('b', e.target.value)}
+              className="field-input text-center"
+              style={{ fontSize: '11px', padding: '4px 6px', borderRadius: '6px' }}
+            />
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 mt-4 pt-3 border-t" style={{ borderColor: '#efe9da' }}>
+          <button
+            type="button"
+            className="btn-gold flex-1 py-1.5 rounded-lg text-xs"
+            onClick={() => onSelectColor(currentHex)}
+          >
+            حسناً
+          </button>
+          <button
+            type="button"
+            className="btn-outline flex-1 py-1.5 rounded-lg text-xs"
+            onClick={onClose}
+          >
+            إلغاء
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ====================================================================== */
 /*  الصفحة الرئيسية                                                       */
 /* ====================================================================== */
 
@@ -342,6 +721,14 @@ export default function CertificateBuilderPage() {
   const [fontMenuOpen, setFontMenuOpen] = useState(false)
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false)
   const [editorHtml, setEditorHtml] = useState('')
+  const [activeFont, setActiveFont] = useState<string>('Tajawal')
+  const [activeSize, setActiveSize] = useState<string>('14px')
+  const [activeColor, setActiveColor] = useState<string>('#1f2733')
+  const [colorMenuOpen, setColorMenuOpen] = useState(false)
+  const [spectrumModalOpen, setSpectrumModalOpen] = useState(false)
+  const [customHue, setCustomHue] = useState<number>(0)
+  const [customSaturation, setCustomSaturation] = useState<number>(100)
+  const [customValue, setCustomValue] = useState<number>(100)
 
   // Form Fields States
   const [formFields, setFormFields] = useState<FormField[]>([])
@@ -543,12 +930,78 @@ export default function CertificateBuilderPage() {
   }
 
   // Document Editor Selection & Commands
+  function getFontLabel(fontValue: string) {
+    if (!fontValue) return 'الخط'
+    const cleanValue = fontValue.replace(/['"]/g, '').toLowerCase().trim()
+    const found = FONT_OPTIONS.find((opt) => {
+      const cleanOpt = opt.value.replace(/['"]/g, '').toLowerCase().trim()
+      const fontNameFromOpt = cleanOpt.split(',')[0].trim()
+      const fontNameFromVal = cleanValue.split(',')[0].trim()
+      return fontNameFromOpt === fontNameFromVal || cleanOpt.includes(cleanValue) || cleanValue.includes(fontNameFromOpt)
+    })
+    if (found) {
+      return found.label.split('(')[0].trim()
+    }
+    const firstFont = fontValue.split(',')[0].replace(/['"]/g, '').trim()
+    return firstFont || 'الخط'
+  }
+
+  function updateToolbarStates() {
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+
+    const range = sel.getRangeAt(0)
+    let node: Node | null = range.startContainer
+    if (!node) return
+
+    let element: HTMLElement | null = node.nodeType === Node.ELEMENT_NODE ? (node as HTMLElement) : node.parentElement
+
+    let foundFont = ''
+    let foundSize = ''
+    let foundColor = ''
+
+    while (element && !element.classList.contains('doc-page')) {
+      if (!foundFont && element.style.fontFamily) {
+        foundFont = element.style.fontFamily
+      }
+      if (!foundSize && element.style.fontSize) {
+        foundSize = element.style.fontSize
+      }
+      if (!foundColor && element.style.color) {
+        foundColor = element.style.color
+      }
+      if (foundFont && foundSize && foundColor) break
+      element = element.parentElement
+    }
+
+    if (!foundFont || !foundSize || !foundColor) {
+      let targetEl = node.nodeType === Node.ELEMENT_NODE ? (node as HTMLElement) : node.parentElement
+      if (targetEl) {
+        const computed = window.getComputedStyle(targetEl)
+        if (!foundFont) foundFont = computed.fontFamily
+        if (!foundSize) foundSize = computed.fontSize
+        if (!foundColor) foundColor = computed.color
+      }
+    }
+
+    if (foundFont) {
+      setActiveFont(foundFont)
+    }
+    if (foundSize) {
+      setActiveSize(foundSize)
+    }
+    if (foundColor) {
+      setActiveColor(rgbStrToHex(foundColor))
+    }
+  }
+
   function saveSelection() {
     const sel = window.getSelection()
     if (sel && sel.rangeCount > 0) {
       const isInside = pageRefs.current.some(ref => ref && ref.contains(sel.anchorNode))
       if (isInside) {
         savedRangeRef.current = sel.getRangeAt(0).cloneRange()
+        updateToolbarStates()
       }
     }
   }
@@ -677,6 +1130,13 @@ export default function CertificateBuilderPage() {
     newRange.selectNodeContents(span)
     sel.addRange(newRange)
     saveSelection()
+    if (prop === 'fontFamily') {
+      setActiveFont(value)
+    } else if (prop === 'fontSize') {
+      setActiveSize(value)
+    } else if (prop === 'color') {
+      setActiveColor(value)
+    }
   }
 
   function insertHtmlAtCursor(html: string) {
@@ -1039,7 +1499,7 @@ export default function CertificateBuilderPage() {
   return (
     <div dir="rtl" className="builder-app min-h-screen flex flex-col">
       <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@300;400;500;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Tajawal:wght@300;400;500;700;800;900&family=Cairo:wght@200..1000&family=Reem+Kufi:wght@400..700&family=Aref+Ruqaa:wght@400;700&family=Lalezar&family=El+Messiri:wght@400..700&family=Changa:wght@200..800&family=Almarai:wght@300;400;700;800&family=Marhey:wght@300..700&family=Scheherazade+New:wght@400;700&display=swap');
         .builder-app { background:#f7f2e7; color:#1f2733; font-family:'Tajawal', sans-serif; }
         .font-amiri { font-family:'Amiri', serif; }
 
@@ -1316,10 +1776,11 @@ export default function CertificateBuilderPage() {
                   setSizeMenuOpen(false)
                   setFieldMenuOpen(false)
                   setImageMenuOpen(false)
+                  setColorMenuOpen(false)
                 }}
               >
                 <Type size={12} />
-                <span>الخط</span>
+                <span>{getFontLabel(activeFont)}</span>
                 <ChevronDown size={11} style={{ opacity: 0.7 }} />
               </button>
               {fontMenuOpen && (
@@ -1356,21 +1817,22 @@ export default function CertificateBuilderPage() {
                   setFontMenuOpen(false)
                   setFieldMenuOpen(false)
                   setImageMenuOpen(false)
+                  setColorMenuOpen(false)
                 }}
               >
-                <span>الحجم</span>
+                <span>{activeSize ? activeSize.replace('px', '').trim() + ' px' : 'الحجم'}</span>
                 <ChevronDown size={11} style={{ opacity: 0.7 }} />
               </button>
               {sizeMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setSizeMenuOpen(false)} />
-                  <div className="dropdown-menu absolute right-0 top-9 z-20 w-24 py-1.5 max-h-60 overflow-y-auto">
+                  <div className="dropdown-menu absolute right-0 top-9 z-20 w-28 py-1.5 max-h-60 overflow-y-auto">
                     {SIZE_OPTIONS.map((s) => (
                       <button
                         key={s}
                         type="button"
-                        className="dropdown-item text-center justify-center font-bold"
-                        style={{ fontSize: '0.85rem' }}
+                        className="dropdown-item"
+                        style={{ fontSize: '0.85rem', display: 'block', textAlign: 'center', width: '100%', whiteSpace: 'nowrap' }}
                         onClick={() => {
                           applyStyle('fontSize', `${s}px`)
                           setSizeMenuOpen(false)
@@ -1400,6 +1862,115 @@ export default function CertificateBuilderPage() {
                 <span style={{ width: 13, height: 13, borderRadius: 9999, background: c, display: 'block', boxShadow: '0 0 0 1px #d6cdb0' }} />
               </button>
             ))}
+
+            {/* Custom Color Button & Popover */}
+            <div className="relative">
+              <button
+                type="button"
+                className="toolbar-btn relative"
+                title="ألوان إضافية ومخصصة"
+                onClick={() => {
+                  saveSelection()
+                  setColorMenuOpen((v) => !v)
+                  setFontMenuOpen(false)
+                  setSizeMenuOpen(false)
+                  setFieldMenuOpen(false)
+                  setImageMenuOpen(false)
+                }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <span style={{
+                  width: 17,
+                  height: 17,
+                  borderRadius: 9999,
+                  border: '1.5px dashed #b8923a',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  color: '#b8923a',
+                  background: 'rgba(184, 146, 58, 0.08)'
+                }}>
+                  +
+                </span>
+              </button>
+              {colorMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setColorMenuOpen(false)} />
+                  <div className="dropdown-menu absolute right-0 top-9 z-20 p-3" style={{ width: '230px' }}>
+                    <p className="text-[11px] font-bold mb-2 text-right" style={{ color: 'var(--text-muted)' }}>ألوان جاهزة</p>
+                    
+                    {/* Grid of Preset Colors */}
+                    <div className="grid grid-cols-10 gap-1.5 mb-3" style={{ direction: 'ltr' }}>
+                      {PRESET_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => {
+                            applyStyle('color', c)
+                            setColorMenuOpen(false)
+                          }}
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '9999px',
+                            backgroundColor: c,
+                            border: '1px solid #d6cdb0',
+                            padding: 0,
+                            cursor: 'pointer',
+                            boxShadow: activeColor.toLowerCase() === c.toLowerCase() ? '0 0 0 1.5px var(--navy-dark)' : 'none'
+                          }}
+                          title={c}
+                        />
+                      ))}
+                    </div>
+                    
+                    <div style={{ height: '1px', background: '#e7ddc4', margin: '8px 0' }} />
+                    
+                    {/* Custom Color Selector section */}
+                    <div className="flex items-center justify-between mt-2" style={{ direction: 'rtl' }}>
+                      <span className="text-[11px] font-bold" style={{ color: 'var(--text-main)' }}>مخصص:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span style={{
+                          width: '14px',
+                          height: '14px',
+                          borderRadius: '9999px',
+                          backgroundColor: activeColor,
+                          border: '1px solid #d6cdb0',
+                          display: 'inline-block'
+                        }} />
+                        <span className="text-[11px] font-mono select-all" style={{ color: 'var(--text-muted)' }}>{activeColor}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const rgb = hexToRgb(activeColor)
+                          const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b)
+                          setCustomHue(hsv.h)
+                          setCustomSaturation(hsv.s)
+                          setCustomValue(hsv.v)
+                          setSpectrumModalOpen(true)
+                          setColorMenuOpen(false)
+                        }}
+                        style={{
+                          background: 'rgba(201, 162, 39, 0.1)',
+                          border: 'none',
+                          borderRadius: '4px',
+                          color: '#9c7a1f',
+                          padding: '3px 7px',
+                          fontSize: '10px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        طيف الألوان
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             <div className="toolbar-divider" />
             <button type="button" className="toolbar-btn" title="محاذاة يمين" onClick={() => exec('justifyRight')}>
               <AlignRight size={15} />
@@ -1421,6 +1992,7 @@ export default function CertificateBuilderPage() {
                   setImageMenuOpen(false)
                   setFontMenuOpen(false)
                   setSizeMenuOpen(false)
+                  setColorMenuOpen(false)
                 }}
               >
                 <Type size={13} />
@@ -1449,6 +2021,7 @@ export default function CertificateBuilderPage() {
                   setFieldMenuOpen(false)
                   setFontMenuOpen(false)
                   setSizeMenuOpen(false)
+                  setColorMenuOpen(false)
                 }}
               >
                 <ImageIcon size={13} />
@@ -1959,6 +2532,16 @@ export default function CertificateBuilderPage() {
         responseCertRef={responseCertRef}
         onDownloadPdf={() => handleDownloadPdfForSubmission(viewingSubmission)}
         onDelete={deleteOneResponse}
+      />
+
+      <SpectrumColorPickerModal
+        isOpen={spectrumModalOpen}
+        initialColor={activeColor}
+        onClose={() => setSpectrumModalOpen(false)}
+        onSelectColor={(color) => {
+          applyStyle('color', color)
+          setSpectrumModalOpen(false)
+        }}
       />
 
       {toast && (
