@@ -405,6 +405,13 @@ function rgbStrToHex(rgbStr: string): string {
   return rgbStr
 }
 
+function getContrastColor(hex: string): string {
+  if (!hex) return '#ffffff'
+  const rgb = hexToRgb(hex)
+  const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000
+  return brightness > 125 ? '#1f2733' : '#ffffff'
+}
+
 const PRESET_COLORS = [
   '#ffffff', '#f3f4f6', '#e5e7eb', '#d1d5db', '#9ca3af', '#6b7280', '#4b5563', '#374151', '#1f2937', '#111827',
   '#fee2e2', '#ffedd5', '#fef9c3', '#dcfce7', '#ccfbf1', '#e0f2fe', '#dbeafe', '#e0e7ff', '#f3e8ff', '#fae8ff',
@@ -1113,7 +1120,33 @@ export default function CertificateBuilderPage() {
   function applyStyle(prop: string, value: string) {
     restoreSelection()
     const sel = window.getSelection()
-    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return
+    if (!sel || sel.rangeCount === 0) return
+
+    if (sel.isCollapsed) {
+      const range = sel.getRangeAt(0)
+      const span = document.createElement('span')
+      // @ts-ignore
+      span.style[prop] = value
+      span.innerHTML = '&#8203;' // zero-width space
+      range.insertNode(span)
+
+      const newRange = document.createRange()
+      newRange.selectNodeContents(span)
+      newRange.collapse(false)
+      sel.removeAllRanges()
+      sel.addRange(newRange)
+      saveSelection()
+
+      if (prop === 'fontFamily') {
+        setActiveFont(value)
+      } else if (prop === 'fontSize') {
+        setActiveSize(value)
+      } else if (prop === 'color') {
+        setActiveColor(value)
+      }
+      return
+    }
+
     const range = sel.getRangeAt(0)
     const span = document.createElement('span')
     // @ts-ignore
@@ -1857,120 +1890,156 @@ export default function CertificateBuilderPage() {
               <Underline size={15} />
             </button>
             <div className="toolbar-divider" />
-            {COLOR_SWATCHES.map((c) => (
-              <button key={c} type="button" className="toolbar-btn" title="لون النص" onClick={() => applyStyle('color', c)}>
-                <span style={{ width: 13, height: 13, borderRadius: 9999, background: c, display: 'block', boxShadow: '0 0 0 1px #d6cdb0' }} />
-              </button>
-            ))}
+            {COLOR_SWATCHES.map((c) => {
+              const isActive = activeColor.toLowerCase() === c.toLowerCase()
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  className="toolbar-btn"
+                  title="لون النص"
+                  onClick={() => applyStyle('color', c)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transform: isActive ? 'scale(1.2)' : 'none',
+                    transition: 'transform 0.15s ease'
+                  }}
+                >
+                  <span style={{
+                    width: 13,
+                    height: 13,
+                    borderRadius: 9999,
+                    background: c,
+                    display: 'block',
+                    boxShadow: isActive ? '0 0 0 2px var(--navy-dark), 0 0 0 3px #fff' : '0 0 0 1px #d6cdb0'
+                  }} />
+                </button>
+              )
+            })}
 
             {/* Custom Color Button & Popover */}
-            <div className="relative">
-              <button
-                type="button"
-                className="toolbar-btn relative"
-                title="ألوان إضافية ومخصصة"
-                onClick={() => {
-                  saveSelection()
-                  setColorMenuOpen((v) => !v)
-                  setFontMenuOpen(false)
-                  setSizeMenuOpen(false)
-                  setFieldMenuOpen(false)
-                  setImageMenuOpen(false)
-                }}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <span style={{
-                  width: 17,
-                  height: 17,
-                  borderRadius: 9999,
-                  border: '1.5px dashed #b8923a',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '11px',
-                  fontWeight: 'bold',
-                  color: '#b8923a',
-                  background: 'rgba(184, 146, 58, 0.08)'
-                }}>
-                  +
-                </span>
-              </button>
-              {colorMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setColorMenuOpen(false)} />
-                  <div className="dropdown-menu absolute right-0 top-9 z-20 p-3" style={{ width: '230px' }}>
-                    <p className="text-[11px] font-bold mb-2 text-right" style={{ color: 'var(--text-muted)' }}>ألوان جاهزة</p>
-                    
-                    {/* Grid of Preset Colors */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: '6px', marginBottom: '12px', direction: 'ltr' }}>
-                      {PRESET_COLORS.map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => {
-                            applyStyle('color', c)
-                            setColorMenuOpen(false)
-                          }}
-                          style={{
-                            width: '16px',
-                            height: '16px',
-                            borderRadius: '9999px',
-                            backgroundColor: c,
-                            border: '1px solid #d6cdb0',
-                            padding: 0,
-                            cursor: 'pointer',
-                            boxShadow: activeColor.toLowerCase() === c.toLowerCase() ? '0 0 0 1.5px var(--navy-dark)' : 'none'
-                          }}
-                          title={c}
-                        />
-                      ))}
-                    </div>
-                    
-                    <div style={{ height: '1px', background: '#e7ddc4', margin: '8px 0' }} />
-                    
-                    {/* Custom Color Selector section */}
-                    <div className="flex items-center justify-between mt-2" style={{ direction: 'rtl' }}>
-                      <span className="text-[11px] font-bold" style={{ color: 'var(--text-main)' }}>مخصص:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span style={{
-                          width: '14px',
-                          height: '14px',
-                          borderRadius: '9999px',
-                          backgroundColor: activeColor,
-                          border: '1px solid #d6cdb0',
-                          display: 'inline-block'
-                        }} />
-                        <span className="text-[11px] font-mono select-all" style={{ color: 'var(--text-muted)' }}>{activeColor}</span>
+            {(() => {
+              const isCustomActive = !COLOR_SWATCHES.map(x => x.toLowerCase()).includes(activeColor.toLowerCase())
+              const contrastColor = getContrastColor(activeColor)
+              return (
+                <div className="relative">
+                  <button
+                    type="button"
+                    className="toolbar-btn relative"
+                    title="ألوان إضافية ومخصصة"
+                    onClick={() => {
+                      saveSelection()
+                      setColorMenuOpen((v) => !v)
+                      setFontMenuOpen(false)
+                      setSizeMenuOpen(false)
+                      setFieldMenuOpen(false)
+                      setImageMenuOpen(false)
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transform: isCustomActive ? 'scale(1.2)' : 'none',
+                      transition: 'transform 0.15s ease'
+                    }}
+                  >
+                    <span style={{
+                      width: 17,
+                      height: 17,
+                      borderRadius: 9999,
+                      border: isCustomActive ? 'none' : '1.5px dashed #b8923a',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      color: isCustomActive ? contrastColor : '#b8923a',
+                      background: isCustomActive ? activeColor : 'rgba(184, 146, 58, 0.08)',
+                      boxShadow: isCustomActive ? '0 0 0 2px var(--navy-dark), 0 0 0 3px #fff' : 'none'
+                    }}>
+                      +
+                    </span>
+                  </button>
+                  {colorMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setColorMenuOpen(false)} />
+                      <div className="dropdown-menu absolute right-0 top-9 z-20 p-3" style={{ width: '230px' }}>
+                        <p className="text-[11px] font-bold mb-2 text-right" style={{ color: 'var(--text-muted)' }}>ألوان جاهزة</p>
+                        
+                        {/* Grid of Preset Colors */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: '6px', marginBottom: '12px', direction: 'ltr' }}>
+                          {PRESET_COLORS.map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => {
+                                applyStyle('color', c)
+                                setColorMenuOpen(false)
+                              }}
+                              style={{
+                                width: '16px',
+                                height: '16px',
+                                borderRadius: '9999px',
+                                backgroundColor: c,
+                                border: '1px solid #d6cdb0',
+                                padding: 0,
+                                cursor: 'pointer',
+                                boxShadow: activeColor.toLowerCase() === c.toLowerCase() ? '0 0 0 1.5px var(--navy-dark)' : 'none'
+                              }}
+                              title={c}
+                            />
+                          ))}
+                        </div>
+                        
+                        <div style={{ height: '1px', background: '#e7ddc4', margin: '8px 0' }} />
+                        
+                        {/* Custom Color Selector section */}
+                        <div className="flex items-center justify-between mt-2" style={{ direction: 'rtl' }}>
+                          <span className="text-[11px] font-bold" style={{ color: 'var(--text-main)' }}>مخصص:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span style={{
+                              width: '14px',
+                              height: '14px',
+                              borderRadius: '9999px',
+                              backgroundColor: activeColor,
+                              border: '1px solid #d6cdb0',
+                              display: 'inline-block'
+                            }} />
+                            <span className="text-[11px] font-mono select-all" style={{ color: 'var(--text-muted)' }}>{activeColor}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const rgb = hexToRgb(activeColor)
+                              const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b)
+                              setCustomHue(hsv.h)
+                              setCustomSaturation(hsv.s)
+                              setCustomValue(hsv.v)
+                              setSpectrumModalOpen(true)
+                              setColorMenuOpen(false)
+                            }}
+                            style={{
+                              background: 'rgba(201, 162, 39, 0.1)',
+                              border: 'none',
+                              borderRadius: '4px',
+                              color: '#9c7a1f',
+                              padding: '3px 7px',
+                              fontSize: '10px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            طيف الألوان
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const rgb = hexToRgb(activeColor)
-                          const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b)
-                          setCustomHue(hsv.h)
-                          setCustomSaturation(hsv.s)
-                          setCustomValue(hsv.v)
-                          setSpectrumModalOpen(true)
-                          setColorMenuOpen(false)
-                        }}
-                        style={{
-                          background: 'rgba(201, 162, 39, 0.1)',
-                          border: 'none',
-                          borderRadius: '4px',
-                          color: '#9c7a1f',
-                          padding: '3px 7px',
-                          fontSize: '10px',
-                          fontWeight: 'bold',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        طيف الألوان
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+                    </>
+                  )}
+                </div>
+              )
+            })()}
             <div className="toolbar-divider" />
             <button type="button" className="toolbar-btn" title="محاذاة يمين" onClick={() => exec('justifyRight')}>
               <AlignRight size={15} />
