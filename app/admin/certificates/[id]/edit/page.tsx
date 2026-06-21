@@ -40,7 +40,8 @@ import {
   List,
   Hash,
   Mail,
-  GripVertical
+  GripVertical,
+  ChevronDown
 } from 'lucide-react'
 
 import DateTimePickerModal, { MONTH_NAMES, getHour12 } from './DateTimePickerModal'
@@ -154,6 +155,17 @@ function getPagesFromHtml(htmlStr: string): string[] {
   }
   return [htmlStr]
 }
+
+const FONT_OPTIONS = [
+  { value: "'Amiri', serif", label: 'Amiri (أميري)' },
+  { value: "'Tajawal', sans-serif", label: 'Tajawal (تجوال)' },
+  { value: "'Cairo', sans-serif", label: 'Cairo (القاهرة)' },
+  { value: "'Reem Kufi', sans-serif", label: 'Reem Kufi (ريم كوفي)' },
+  { value: "'Aref Ruqaa', serif", label: 'Aref Ruqaa (عارف رقعة)' },
+  { value: "'Lalezar', cursive", label: 'Lalezar (لاليزار)' },
+]
+
+const SIZE_OPTIONS = [11, 12, 14, 16, 18, 22, 26, 32, 38, 48, 56, 64]
 
 function CertificateModal({ response, onClose, cert, responseCertRef, onDownloadPdf, onDelete }: CertificateModalProps) {
   if (!response || !cert) return null
@@ -327,6 +339,8 @@ export default function CertificateBuilderPage() {
   const [pageBg, setPageBg] = useState('#fffdf8')
   const [fieldMenuOpen, setFieldMenuOpen] = useState(false)
   const [imageMenuOpen, setImageMenuOpen] = useState(false)
+  const [fontMenuOpen, setFontMenuOpen] = useState(false)
+  const [sizeMenuOpen, setSizeMenuOpen] = useState(false)
   const [editorHtml, setEditorHtml] = useState('')
 
   // Form Fields States
@@ -1290,23 +1304,86 @@ export default function CertificateBuilderPage() {
               <Redo2 size={15} />
             </button>
             <div className="toolbar-divider" />
-            <select className="toolbar-select" defaultValue="" onChange={(e) => e.target.value && applyStyle('fontFamily', e.target.value)}>
-              <option value="" disabled>
-                الخط
-              </option>
-              <option value="'Amiri', serif">Amiri</option>
-              <option value="'Tajawal', sans-serif">Tajawal</option>
-            </select>
-            <select className="toolbar-select" defaultValue="" onChange={(e) => e.target.value && applyStyle('fontSize', e.target.value)}>
-              <option value="" disabled>
-                الحجم
-              </option>
-              {[11, 12, 14, 16, 18, 22, 26, 32, 38].map((s) => (
-                <option key={s} value={`${s}px`}>
-                  {s}
-                </option>
-              ))}
-            </select>
+            
+            {/* Font Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                className="toolbar-dropdown-btn"
+                onClick={() => {
+                  saveSelection()
+                  setFontMenuOpen((v) => !v)
+                  setSizeMenuOpen(false)
+                  setFieldMenuOpen(false)
+                  setImageMenuOpen(false)
+                }}
+              >
+                <Type size={12} />
+                <span>الخط</span>
+                <ChevronDown size={11} style={{ opacity: 0.7 }} />
+              </button>
+              {fontMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setFontMenuOpen(false)} />
+                  <div className="dropdown-menu absolute right-0 top-9 z-20 w-48 py-1.5 max-h-60 overflow-y-auto">
+                    {FONT_OPTIONS.map((f) => (
+                      <button
+                        key={f.value}
+                        type="button"
+                        className="dropdown-item text-right"
+                        style={{ fontFamily: f.value, fontSize: '0.95rem' }}
+                        onClick={() => {
+                          applyStyle('fontFamily', f.value)
+                          setFontMenuOpen(false)
+                        }}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Size Dropdown */}
+            <div className="relative mr-1">
+              <button
+                type="button"
+                className="toolbar-dropdown-btn"
+                onClick={() => {
+                  saveSelection()
+                  setSizeMenuOpen((v) => !v)
+                  setFontMenuOpen(false)
+                  setFieldMenuOpen(false)
+                  setImageMenuOpen(false)
+                }}
+              >
+                <span>الحجم</span>
+                <ChevronDown size={11} style={{ opacity: 0.7 }} />
+              </button>
+              {sizeMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setSizeMenuOpen(false)} />
+                  <div className="dropdown-menu absolute right-0 top-9 z-20 w-24 py-1.5 max-h-60 overflow-y-auto">
+                    {SIZE_OPTIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className="dropdown-item text-center justify-center font-bold"
+                        style={{ fontSize: '0.85rem' }}
+                        onClick={() => {
+                          applyStyle('fontSize', `${s}px`)
+                          setSizeMenuOpen(false)
+                        }}
+                      >
+                        {s} px
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="toolbar-divider" />
             <button type="button" className="toolbar-btn" title="عريض" onClick={() => exec('bold')}>
               <Bold size={15} />
@@ -1342,6 +1419,8 @@ export default function CertificateBuilderPage() {
                   saveSelection()
                   setFieldMenuOpen((v) => !v)
                   setImageMenuOpen(false)
+                  setFontMenuOpen(false)
+                  setSizeMenuOpen(false)
                 }}
               >
                 <Type size={13} />
@@ -1368,6 +1447,8 @@ export default function CertificateBuilderPage() {
                   saveSelection()
                   setImageMenuOpen((v) => !v)
                   setFieldMenuOpen(false)
+                  setFontMenuOpen(false)
+                  setSizeMenuOpen(false)
                 }}
               >
                 <ImageIcon size={13} />
