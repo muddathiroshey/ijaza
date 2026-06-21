@@ -145,6 +145,20 @@ function replacePlaceholders(html: string, formData: Record<string, string>): st
   return replaced
 }
 
+function getPagesFromHtml(htmlStr: string): string[] {
+  if (!htmlStr) return ['']
+  if (htmlStr.includes('cert-page-content')) {
+    const pageRegex = /<div class="cert-page-content">([\s\S]*?)<\/div>/g
+    const list: string[] = []
+    let m
+    while ((m = pageRegex.exec(htmlStr)) !== null) {
+      list.push(m[1])
+    }
+    return list.length > 0 ? list : ['']
+  }
+  return [htmlStr]
+}
+
 function CertificateModal({ response, onClose, cert, responseCertRef, onDownloadPdf, onDelete }: CertificateModalProps) {
   if (!response || !cert) return null
   
@@ -175,6 +189,18 @@ function CertificateModal({ response, onClose, cert, responseCertRef, onDownload
   }
 
   const replacedHtml = replacePlaceholders(html, displayData)
+  
+  const modalPages: string[] = []
+  if (replacedHtml.includes('cert-page-content')) {
+    const pageRegex = /<div class="cert-page-content">([\s\S]*?)<\/div>/g
+    let m
+    while ((m = pageRegex.exec(replacedHtml)) !== null) {
+      modalPages.push(m[1])
+    }
+  }
+  if (modalPages.length === 0) {
+    modalPages.push(replacedHtml)
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -188,46 +214,50 @@ function CertificateModal({ response, onClose, cert, responseCertRef, onDownload
           </button>
         </div>
         
-        <div className="px-6 py-2 flex justify-center bg-[#ece6d4]" style={{ overflow: 'auto', maxHeight: '60vh' }}>
-          <div
-            ref={responseCertRef}
-            className="font-amiri relative overflow-hidden flex-shrink-0"
-            style={{
-              background: bg,
-              width: '100%',
-              maxWidth: orientation === 'landscape' ? '880px' : '620px',
-              aspectRatio: orientation === 'landscape' ? '1.4142 / 1' : '1 / 1.4142',
-              border: '2px solid #c9a227',
-              borderRadius: '4px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-            }}
-          >
-            {/* Border Image */}
-            <img
-              src="/border.png"
-              alt="Certificate Border"
-              className="absolute pointer-events-none select-none"
-              style={{
-                width: orientation === 'landscape' ? '70.72%' : '100%',
-                height: orientation === 'landscape' ? '141.42%' : '100%',
-                top: orientation === 'landscape' ? '50%' : '0',
-                left: orientation === 'landscape' ? '50%' : '0',
-                transform: orientation === 'landscape' ? 'translate(-50%, -50%) rotate(90deg)' : 'none',
-                objectFit: 'fill',
-                zIndex: 1,
-              }}
-            />
+        <div className="px-6 py-2 flex flex-col gap-6 items-center bg-[#ece6d4]" style={{ overflow: 'auto', maxHeight: '60vh', width: '100%' }}>
+          <div ref={responseCertRef} className="flex flex-col gap-6 items-center w-full">
+            {modalPages.map((pageHtml, idx) => (
+              <div
+                key={idx}
+                className="certificate-page font-amiri relative overflow-hidden flex-shrink-0"
+                style={{
+                  background: bg,
+                  width: '100%',
+                  maxWidth: orientation === 'landscape' ? '880px' : '620px',
+                  aspectRatio: orientation === 'landscape' ? '1.4142 / 1' : '1 / 1.4142',
+                  border: '2px solid #c9a227',
+                  borderRadius: '4px',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                }}
+              >
+                {/* Border Image */}
+                <img
+                  src="/border.png"
+                  alt="Certificate Border"
+                  className="absolute pointer-events-none select-none"
+                  style={{
+                    width: orientation === 'landscape' ? '70.72%' : '100%',
+                    height: orientation === 'landscape' ? '141.42%' : '100%',
+                    top: orientation === 'landscape' ? '50%' : '0',
+                    left: orientation === 'landscape' ? '50%' : '0',
+                    transform: orientation === 'landscape' ? 'translate(-50%, -50%) rotate(90deg)' : 'none',
+                    objectFit: 'fill',
+                    zIndex: 1,
+                  }}
+                />
 
-            {/* Content Layer */}
-            <div
-              className="absolute inset-0 text-right pointer-events-none"
-              style={{
-                padding: '62px 68px',
-                zIndex: 2,
-                direction: 'rtl',
-              }}
-              dangerouslySetInnerHTML={{ __html: replacedHtml }}
-            />
+                {/* Content Layer */}
+                <div
+                  className="absolute inset-0 text-right pointer-events-none"
+                  style={{
+                    padding: '12% 12%',
+                    zIndex: 2,
+                    direction: 'rtl',
+                  }}
+                  dangerouslySetInnerHTML={{ __html: pageHtml }}
+                />
+              </div>
+            ))}
           </div>
         </div>
         
@@ -294,7 +324,8 @@ export default function CertificateBuilderPage() {
   const [viewMode, setViewMode] = useState<'builder' | 'form_editor' | 'responses'>('builder')
 
   // Cert Editor States
-  const pageRef = useRef<HTMLDivElement>(null)
+  const pageRefs = useRef<(HTMLDivElement | null)[]>([])
+  const [pages, setPages] = useState<string[]>([''])
   const savedRangeRef = useRef<Range | null>(null)
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape')
   const [pageBg, setPageBg] = useState('#fffdf8')
@@ -359,6 +390,8 @@ export default function CertificateBuilderPage() {
         initialHtml = certData.template_html
       }
       setEditorHtml(initialHtml)
+      const pagesList = getPagesFromHtml(initialHtml)
+      setPages(pagesList)
 
       // Initialize Auto Close Settings
       if (certData.auto_close_at) {
@@ -381,12 +414,17 @@ export default function CertificateBuilderPage() {
     loadData()
   }, [loadData])
 
-  // Synchronize HTML with ref when tab becomes cert builder
+  // Synchronize HTML with page refs when tab becomes cert builder
   useEffect(() => {
-    if (viewMode === 'builder' && pageRef.current && editorHtml) {
-      pageRef.current.innerHTML = editorHtml
+    if (viewMode === 'builder') {
+      pages.forEach((pageContent, idx) => {
+        const ref = pageRefs.current[idx]
+        if (ref && ref.innerHTML !== pageContent) {
+          ref.innerHTML = pageContent
+        }
+      })
     }
-  }, [viewMode, editorHtml])
+  }, [viewMode, pages])
 
   const loadSubmissions = useCallback(async () => {
     setSubmissionsLoading(true)
@@ -484,8 +522,10 @@ export default function CertificateBuilderPage() {
 
   // Tab changer
   function handleTabChange(mode: 'builder' | 'form_editor' | 'responses') {
-    if (viewMode === 'builder' && pageRef.current) {
-      const currentHtml = pageRef.current.innerHTML
+    if (viewMode === 'builder') {
+      const pagesList = pageRefs.current.map(ref => ref ? ref.innerHTML : '')
+      const currentHtml = pagesList.map(h => `<div class="cert-page-content">${h}</div>`).join('')
+      setPages(pagesList)
       setEditorHtml(currentHtml)
       syncFormFields(currentHtml)
     }
@@ -495,8 +535,98 @@ export default function CertificateBuilderPage() {
   // Document Editor Selection & Commands
   function saveSelection() {
     const sel = window.getSelection()
-    if (sel && sel.rangeCount > 0 && pageRef.current && pageRef.current.contains(sel.anchorNode)) {
-      savedRangeRef.current = sel.getRangeAt(0).cloneRange()
+    if (sel && sel.rangeCount > 0) {
+      const isInside = pageRefs.current.some(ref => ref && ref.contains(sel.anchorNode))
+      if (isInside) {
+        savedRangeRef.current = sel.getRangeAt(0).cloneRange()
+      }
+    }
+  }
+
+  const handlePageInput = (index: number, target: HTMLDivElement | null = null) => {
+    const pageEl = target || pageRefs.current[index]
+    if (!pageEl) return
+
+    const newPages = [...pageRefs.current.map(ref => ref ? ref.innerHTML : '')]
+    newPages[index] = pageEl.innerHTML
+
+    if (pageEl.scrollHeight > pageEl.clientHeight) {
+      const lastChild = pageEl.lastElementChild
+      if (lastChild) {
+        const lastChildHtml = lastChild.outerHTML
+        const currentHtml = pageEl.innerHTML
+        const lastIndex = currentHtml.lastIndexOf(lastChildHtml)
+        const updatedCurrent = lastIndex !== -1 ? currentHtml.substring(0, lastIndex) : currentHtml
+        
+        const nextPageContent = newPages[index + 1] || ''
+        const updatedNextPage = lastChildHtml + nextPageContent
+        
+        newPages[index] = updatedCurrent
+        newPages[index + 1] = updatedNextPage
+        
+        pageEl.innerHTML = updatedCurrent
+        
+        setPages(newPages)
+        
+        setTimeout(() => {
+          const nextRef = pageRefs.current[index + 1]
+          if (nextRef) {
+            nextRef.innerHTML = updatedNextPage
+            nextRef.focus()
+            const range = document.createRange()
+            const sel = window.getSelection()
+            range.selectNodeContents(nextRef)
+            range.collapse(true)
+            sel?.removeAllRanges()
+            sel?.addRange(range)
+            saveSelection()
+            handlePageInput(index + 1, nextRef)
+          }
+        }, 50)
+      }
+    } else {
+      setPages(newPages)
+    }
+  }
+
+  const handlePageKeyDown = (index: number, e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Backspace' && index > 0) {
+      const selection = window.getSelection()
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0)
+        if (range.startOffset === 0 && range.collapsed) {
+          e.preventDefault()
+          const prevPageRef = pageRefs.current[index - 1]
+          if (prevPageRef) {
+            const prevHtml = prevPageRef.innerHTML
+            const currentHtml = e.currentTarget.innerHTML
+            const mergedHtml = prevHtml + currentHtml
+            
+            prevPageRef.innerHTML = mergedHtml
+            
+            const newPages = [...pageRefs.current.map(ref => ref ? ref.innerHTML : '')]
+            newPages[index - 1] = mergedHtml
+            newPages.splice(index, 1)
+            
+            setPages(newPages)
+            
+            setTimeout(() => {
+              const prevRef = pageRefs.current[index - 1]
+              if (prevRef) {
+                prevRef.focus()
+                const range = document.createRange()
+                const sel = window.getSelection()
+                range.selectNodeContents(prevRef)
+                range.collapse(false)
+                sel?.removeAllRanges()
+                sel?.addRange(range)
+                saveSelection()
+                handlePageInput(index - 1, prevRef)
+              }
+            }, 50)
+          }
+        }
+      }
     }
   }
 
@@ -505,14 +635,14 @@ export default function CertificateBuilderPage() {
     if (sel && savedRangeRef.current) {
       sel.removeAllRanges()
       sel.addRange(savedRangeRef.current)
-    } else if (pageRef.current) {
-      pageRef.current.focus()
+    } else {
+      const firstPage = pageRefs.current[0]
+      if (firstPage) firstPage.focus()
     }
   }
 
   function exec(command: string, value: string | null = null) {
     restoreSelection()
-    if (pageRef.current) pageRef.current.focus()
     document.execCommand(command, false, value || undefined)
     saveSelection()
   }
@@ -541,8 +671,18 @@ export default function CertificateBuilderPage() {
 
   function insertHtmlAtCursor(html: string) {
     restoreSelection()
-    if (pageRef.current) pageRef.current.focus()
     document.execCommand('insertHTML', false, html)
+    
+    const sel = window.getSelection()
+    if (sel && sel.anchorNode) {
+      const pageIndex = pageRefs.current.findIndex(ref => ref && ref.contains(sel.anchorNode))
+      if (pageIndex !== -1) {
+        const ref = pageRefs.current[pageIndex]
+        if (ref) {
+          handlePageInput(pageIndex, ref)
+        }
+      }
+    }
     saveSelection()
   }
 
@@ -623,11 +763,15 @@ export default function CertificateBuilderPage() {
   async function handleSave() {
     setSaving(true)
     try {
-      let currentHtml = editorHtml
-      if (viewMode === 'builder' && pageRef.current) {
-        currentHtml = pageRef.current.innerHTML
+      let currentHtml = ''
+      if (viewMode === 'builder') {
+        const pagesList = pageRefs.current.map(ref => ref ? ref.innerHTML : '')
+        currentHtml = pagesList.map(h => `<div class="cert-page-content">${h}</div>`).join('')
+        setPages(pagesList)
         setEditorHtml(currentHtml)
         syncFormFields(currentHtml)
+      } else {
+        currentHtml = editorHtml
       }
 
       const configJson = JSON.stringify({
@@ -788,25 +932,42 @@ export default function CertificateBuilderPage() {
 
       if (!responseCertRef.current) return
 
-      const canvas = await html2canvas(responseCertRef.current, {
-        scale: 2.2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-      })
-
-      const imgData = canvas.toDataURL('image/png')
-      
+      const certPages = responseCertRef.current.querySelectorAll('.certificate-page')
       const pdf = new jsPDF({
         orientation: orientation,
         unit: 'mm',
         format: 'a4',
       })
 
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
-
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+      if (certPages.length > 0) {
+        for (let i = 0; i < certPages.length; i++) {
+          const pageEl = certPages[i] as HTMLElement
+          const canvas = await html2canvas(pageEl, {
+            scale: 2.2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: null,
+          })
+          const imgData = canvas.toDataURL('image/png')
+          const pdfWidth = pdf.internal.pageSize.getWidth()
+          const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+          if (i > 0) {
+            pdf.addPage()
+          }
+          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+        }
+      } else {
+        const canvas = await html2canvas(responseCertRef.current, {
+          scale: 2.2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: null,
+        })
+        const imgData = canvas.toDataURL('image/png')
+        const pdfWidth = pdf.internal.pageSize.getWidth()
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+      }
       
       const studentName = response.data?.['student_name'] || response.data?.['اسم الطالب'] || Object.values(response.data)[0] || 'طالب'
       pdf.save(`إجازة_${studentName}_${cert.title}.pdf`)
@@ -931,7 +1092,7 @@ export default function CertificateBuilderPage() {
         .doc-scroll { flex:1; overflow:auto; padding:2.5rem 1.5rem; display:flex; justify-content:center; background-color:#ece6d4; background-image: radial-gradient(rgba(184,146,58,0.14) 1px, transparent 1.4px); background-size:20px 20px; }
         .doc-page-container { position:relative; overflow:hidden; flex-shrink:0; box-shadow:0 14px 40px -12px rgba(22,36,63,0.28); border:2px solid #c9a227; border-radius:4px; transition:box-shadow 0.15s ease; }
         .doc-page-container:focus-within { box-shadow:0 0 0 3px rgba(201,162,39,0.25), 0 14px 40px -12px rgba(22,36,63,0.28); }
-        .doc-page { width:100%; height:100%; border:none; padding:62px 68px; outline:none; background:transparent; }
+        .doc-page { width:100%; height:100%; border:none; padding:12% 12%; outline:none; background:transparent; }
 
         .field-chip, .image-chip { display:inline-block; font-family:'Tajawal',sans-serif; font-size:0.85em; padding:1px 9px; margin:0 2px; border:1.5px dashed #c9a227; border-radius:4px; background:rgba(201,162,39,0.08); color:#9c7a1f; font-weight:600; }
         .image-chip { border-color:#b8923a; }
@@ -1232,48 +1393,55 @@ export default function CertificateBuilderPage() {
             </div>
           </div>
 
-          <div className="doc-scroll">
-            <div
-              className="doc-page-container"
-              style={{
-                width: '100%',
-                maxWidth: orientation === 'landscape' ? '880px' : '620px',
-                aspectRatio: orientation === 'landscape' ? '1.4142 / 1' : '1 / 1.4142',
-                background: pageBg,
-              }}
-            >
-              {/* Border Image */}
-              <img
-                src="/border.png"
-                alt="Certificate Border"
-                className="absolute pointer-events-none select-none"
-                style={{
-                  width: orientation === 'landscape' ? '70.72%' : '100%',
-                  height: orientation === 'landscape' ? '141.42%' : '100%',
-                  top: orientation === 'landscape' ? '50%' : '0',
-                  left: orientation === 'landscape' ? '50%' : '0',
-                  transform: orientation === 'landscape' ? 'translate(-50%, -50%) rotate(90deg)' : 'none',
-                  objectFit: 'fill',
-                  zIndex: 1,
-                }}
-              />
+          <div className="doc-scroll flex flex-col gap-6 items-center" style={{ justifyContent: 'flex-start' }}>
+            {pages.map((pageContent, idx) => (
               <div
-                ref={pageRef}
-                contentEditable
-                suppressContentEditableWarning
-                dir="rtl"
-                onMouseUp={saveSelection}
-                onKeyUp={saveSelection}
-                className="doc-page font-amiri"
+                key={idx}
+                className="doc-page-container"
                 style={{
                   width: '100%',
-                  height: '100%',
-                  zIndex: 2,
-                  position: 'absolute',
-                  inset: 0,
+                  maxWidth: orientation === 'landscape' ? '880px' : '620px',
+                  aspectRatio: orientation === 'landscape' ? '1.4142 / 1' : '1 / 1.4142',
+                  background: pageBg,
                 }}
-              />
-            </div>
+              >
+                {/* Border Image */}
+                <img
+                  src="/border.png"
+                  alt="Certificate Border"
+                  className="absolute pointer-events-none select-none"
+                  style={{
+                    width: orientation === 'landscape' ? '70.72%' : '100%',
+                    height: orientation === 'landscape' ? '141.42%' : '100%',
+                    top: orientation === 'landscape' ? '50%' : '0',
+                    left: orientation === 'landscape' ? '50%' : '0',
+                    transform: orientation === 'landscape' ? 'translate(-50%, -50%) rotate(90deg)' : 'none',
+                    objectFit: 'fill',
+                    zIndex: 1,
+                  }}
+                />
+                <div
+                  ref={(el) => {
+                    pageRefs.current[idx] = el
+                  }}
+                  contentEditable
+                  suppressContentEditableWarning
+                  dir="rtl"
+                  onMouseUp={saveSelection}
+                  onKeyUp={saveSelection}
+                  onInput={() => handlePageInput(idx)}
+                  onKeyDown={(e) => handlePageKeyDown(idx, e)}
+                  className="doc-page font-amiri"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    zIndex: 2,
+                    position: 'absolute',
+                    inset: 0,
+                  }}
+                />
+              </div>
+            ))}
           </div>
         </div>
       </div>

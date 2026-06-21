@@ -195,15 +195,6 @@ export default function StudentCertificatePage() {
 
       if (!certRef.current) return
 
-      const canvas = await html2canvas(certRef.current, {
-        scale: 2.2, // high quality
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-      })
-
-      const imgData = canvas.toDataURL('image/png')
-      
       // Determine orientation dynamically based on layout config
       let isLandscape = true
       if (cert && cert.template_html && cert.template_html.startsWith('{')) {
@@ -213,16 +204,43 @@ export default function StudentCertificatePage() {
         } catch {}
       }
 
+      const certPages = certRef.current.querySelectorAll('.certificate-a4')
       const pdf = new jsPDF({
         orientation: isLandscape ? 'landscape' : 'portrait',
         unit: 'mm',
         format: 'a4',
       })
 
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+      if (certPages.length > 0) {
+        for (let i = 0; i < certPages.length; i++) {
+          const pageEl = certPages[i] as HTMLElement
+          const canvas = await html2canvas(pageEl, {
+            scale: 2.2, // high quality
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: null,
+          })
+          const imgData = canvas.toDataURL('image/png')
+          const pdfWidth = pdf.internal.pageSize.getWidth()
+          const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+          if (i > 0) {
+            pdf.addPage()
+          }
+          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+        }
+      } else {
+        const canvas = await html2canvas(certRef.current, {
+          scale: 2.2, // high quality
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: null,
+        })
+        const imgData = canvas.toDataURL('image/png')
+        const pdfWidth = pdf.internal.pageSize.getWidth()
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+      }
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
       pdf.save(`إجازة_${cert?.title || 'شهادة'}.pdf`)
       showToast('تم تحميل ملف PDF بنجاح ✓')
     } catch (err) {
@@ -306,6 +324,21 @@ export default function StudentCertificatePage() {
       } catch {}
     }
 
+    const pages: string[] = []
+    if (isJsonTemplate && builderConfig) {
+      const htmlStr = builderConfig.html || ''
+      if (htmlStr.includes('cert-page-content')) {
+        const pageRegex = /<div class="cert-page-content">([\s\S]*?)<\/div>/g
+        let m
+        while ((m = pageRegex.exec(htmlStr)) !== null) {
+          pages.push(m[1])
+        }
+      }
+      if (pages.length === 0) {
+        pages.push(htmlStr)
+      }
+    }
+
     return (
       <div className="min-h-screen flex flex-col" style={{ background: '#1c1c1f' }}>
         {/* شريط الإجراءات */}
@@ -336,92 +369,52 @@ export default function StudentCertificatePage() {
         </div>
 
         {/* عرض الورقة */}
-        <div className="flex-1 flex justify-center items-start p-6 lg:p-12 overflow-auto">
+        <div className="flex-1 flex flex-col gap-6 items-center p-6 lg:p-12 overflow-auto" style={{ justifyContent: 'flex-start' }}>
           {isJsonTemplate && builderConfig ? (
-            <div
-              ref={certRef}
-              className="certificate-a4 relative flex-shrink-0"
-              style={{
-                background: builderConfig.bg || '#fffdf8',
-                aspectRatio: builderConfig.orientation === 'landscape' ? '1.414 / 1' : '1 / 1.414',
-                width: builderConfig.orientation === 'landscape' ? '297mm' : '210mm',
-                height: builderConfig.orientation === 'landscape' ? '210mm' : '297mm',
-                border: 'none',
-              }}
-            >
-              {/* Border Image */}
-              <img
-                src="/border.png"
-                alt="Certificate Border"
-                className="absolute pointer-events-none select-none"
-                style={{
-                  width: builderConfig.orientation === 'landscape' ? '70.72%' : '100%',
-                  height: builderConfig.orientation === 'landscape' ? '141.42%' : '100%',
-                  top: builderConfig.orientation === 'landscape' ? '50%' : '0',
-                  left: builderConfig.orientation === 'landscape' ? '50%' : '0',
-                  transform: builderConfig.orientation === 'landscape' ? 'translate(-50%, -50%) rotate(90deg)' : 'none',
-                  objectFit: 'fill',
-                }}
-              />
-
-              {/* Central flow document container */}
-              <div
-                className="absolute flex flex-col justify-center gap-2 text-right pointer-events-none"
-                style={{
-                  left: '8%',
-                  right: '8%',
-                  top: '8%',
-                  bottom: '8%',
-                  direction: 'rtl',
-                  zIndex: 2,
-                }}
-                {...(builderConfig.html
-                  ? { dangerouslySetInnerHTML: { __html: replacePlaceholders(builderConfig.html, formData) } }
-                  : {}
-                )}
-              >
-                {!builderConfig.html && builderConfig.elements.filter((el: any) => el.type !== 'image' && !el.hidden).map((el: any) => {
-                  let textValue = el.text
-                  if (el.type === 'field') {
-                    textValue = formData[el.key] || el.text
-                  }
-                  return (
-                    <div
-                      key={el.id}
-                      style={{
-                        fontFamily: el.font === 'Amiri' ? "'Amiri', serif" : "'Tajawal', sans-serif",
-                        fontSize: `${el.size}px`,
-                        fontWeight: el.weight || 400,
-                        color: el.color,
-                        textAlign: el.align || 'center',
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
-                      {textValue}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Absolute Stamps and Signatures */}
-              {builderConfig.elements.filter((el: any) => el.type === 'image' && !el.hidden).map((el: any) => {
-                return (
-                  <div
-                    key={el.id}
-                    className="absolute flex items-center justify-center overflow-hidden pointer-events-none"
+            <div ref={certRef} className="flex flex-col gap-6 items-center w-full">
+              {pages.map((pageHtml, idx) => (
+                <div
+                  key={idx}
+                  className="certificate-a4 relative flex-shrink-0"
+                  style={{
+                    background: builderConfig.bg || '#fffdf8',
+                    aspectRatio: builderConfig.orientation === 'landscape' ? '1.4142 / 1' : '1 / 1.4142',
+                    width: builderConfig.orientation === 'landscape' ? '297mm' : '210mm',
+                    height: builderConfig.orientation === 'landscape' ? '210mm' : '297mm',
+                    border: 'none',
+                    boxShadow: '0 10px 30px rgba(22, 36, 63, 0.15)',
+                  }}
+                >
+                  {/* Border Image */}
+                  <img
+                    src="/border.png"
+                    alt="Certificate Border"
+                    className="absolute pointer-events-none select-none"
                     style={{
-                      left: `${el.x}%`,
-                      top: `${el.y}%`,
-                      width: `${el.w}%`,
-                      height: `${el.h}%`,
-                      transform: 'translate(-50%, -50%)',
-                      zIndex: 10,
+                      width: builderConfig.orientation === 'landscape' ? '70.72%' : '100%',
+                      height: builderConfig.orientation === 'landscape' ? '141.42%' : '100%',
+                      top: builderConfig.orientation === 'landscape' ? '50%' : '0',
+                      left: builderConfig.orientation === 'landscape' ? '50%' : '0',
+                      transform: builderConfig.orientation === 'landscape' ? 'translate(-50%, -50%) rotate(90deg)' : 'none',
+                      objectFit: 'fill',
                     }}
-                  >
-                    {el.url && <img src={el.url} alt={el.label} className="w-full h-full object-contain pointer-events-none" />}
-                  </div>
-                )
-              })}
+                  />
+
+                  {/* Central flow document container */}
+                  <div
+                    className="absolute flex flex-col justify-center gap-2 text-right pointer-events-none"
+                    style={{
+                      left: '12%',
+                      right: '12%',
+                      top: '12%',
+                      bottom: '12%',
+                      direction: 'rtl',
+                      zIndex: 2,
+                    }}
+                    dangerouslySetInnerHTML={{ __html: replacePlaceholders(pageHtml, formData) }}
+                  />
+                </div>
+              ))}
             </div>
           ) : (
             /* Fallback rendering for HTML legacy certificates */
