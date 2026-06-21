@@ -194,8 +194,9 @@ function CertificateModal({ response, onClose, cert, responseCertRef, onDownload
             className="font-amiri relative overflow-hidden flex-shrink-0"
             style={{
               background: bg,
-              width: orientation === 'landscape' ? '880px' : '620px',
-              minHeight: orientation === 'landscape' ? '540px' : '760px',
+              width: '100%',
+              maxWidth: orientation === 'landscape' ? '880px' : '620px',
+              aspectRatio: orientation === 'landscape' ? '1.4142 / 1' : '1 / 1.4142',
               border: '2px solid #c9a227',
               borderRadius: '4px',
               boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
@@ -1235,8 +1236,9 @@ export default function CertificateBuilderPage() {
             <div
               className="doc-page-container"
               style={{
-                width: orientation === 'landscape' ? '880px' : '620px',
-                height: orientation === 'landscape' ? '540px' : '760px',
+                width: '100%',
+                maxWidth: orientation === 'landscape' ? '880px' : '620px',
+                aspectRatio: orientation === 'landscape' ? '1.4142 / 1' : '1 / 1.4142',
                 background: pageBg,
               }}
             >
@@ -1267,7 +1269,8 @@ export default function CertificateBuilderPage() {
                   width: '100%',
                   height: '100%',
                   zIndex: 2,
-                  position: 'relative',
+                  position: 'absolute',
+                  inset: 0,
                 }}
               />
             </div>
