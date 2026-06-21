@@ -12,6 +12,7 @@ import {
   Plus,
   Link2,
   Eye,
+  EyeOff,
   Pencil,
   MoreVertical,
   Trash2,
@@ -243,6 +244,7 @@ export default function AdminDashboard() {
   const [newMemberName, setNewMemberName] = useState('')
   const [newMemberRole, setNewMemberRole] = useState<'مشرف' | 'عضو'>('عضو')
   const [newMemberPassword, setNewMemberPassword] = useState('')
+  const [showMemberPassword, setShowMemberPassword] = useState(false)
 
   // Creation States
   const [showCreate, setShowCreate] = useState(false)
@@ -416,6 +418,7 @@ export default function AdminDashboard() {
     setNewMemberName('')
     setNewMemberRole('عضو')
     setNewMemberPassword('')
+    setShowMemberPassword(false)
     setShowAddMember(false)
     showToast('تم إضافة عضو جديد للفريق ✓')
   }
@@ -827,15 +830,40 @@ export default function AdminDashboard() {
               </div>
               <div className="form-group text-right">
                 <label className="form-label" htmlFor="member-password">كلمة المرور *</label>
-                <input
-                  id="member-password"
-                  type="password"
-                  className="form-input text-right"
-                  value={newMemberPassword}
-                  onChange={(e) => setNewMemberPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id="member-password"
+                    type={showMemberPassword ? 'text' : 'password'}
+                    className="form-input text-right"
+                    value={newMemberPassword}
+                    onChange={(e) => setNewMemberPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    style={{ paddingRight: '2.5rem' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowMemberPassword(!showMemberPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '0.8rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: 0
+                    }}
+                  >
+                    {showMemberPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+                  ملاحظة: سيُطلب من العضو تغيير كلمة المرور هذه عند أول تسجيل دخول له.
+                </p>
               </div>
               <div className="flex gap-2 justify-end mt-5">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddMember(false)}>
