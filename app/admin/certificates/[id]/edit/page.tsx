@@ -1610,6 +1610,11 @@ export default function EditCertificatePage() {
 
             .form-editor-option-item { display:flex; align-items:center; gap:0.5rem; margin-top:0.35rem; }
             .form-editor-option-dot { width:6px; height:6px; border-radius:9999px; background:#c9a227; }
+
+            @media (min-width: 1024px) {
+              .lg\:w-72 { width: 18rem !important; }
+              .lg\:p-9 { padding: 2.25rem !important; }
+            }
           ` }} />
 
           {/* Right Panel (Fields List) */}
