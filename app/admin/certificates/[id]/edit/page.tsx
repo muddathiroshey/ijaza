@@ -1695,18 +1695,17 @@ export default function EditCertificatePage() {
             </div>
           </aside>
 
-          {/* Center Workspace (Form Live Preview) */}
           <div className="order-1 lg:order-2 flex-1 overflow-auto p-6 lg:p-10 flex items-start justify-center content-bg">
-            <div className="w-full" style={{ maxWidth: 560 }}>
+            <div className="w-full" style={{ maxWidth: 440 }}>
               <div className="card-formal p-7 lg:p-9 text-right" style={{ background: '#fffdf8', border: '1px solid #e7ddc4', borderRadius: '16px' }}>
                 <p className="text-xs font-semibold mb-1.5" style={{ color: "#b8923a" }}>
-                  معاينة الاستمارة للطلاب
+                  أكاديمية النور للعلوم الشرعية
                 </p>
                 <h2 className="font-amiri text-2xl font-bold mb-2" style={{ color: "#16243f" }}>
-                  {templateName}
+                  {templateName.startsWith('نموذج') ? templateName : `نموذج ${templateName}`}
                 </h2>
                 <p className="text-sm mb-7 leading-relaxed" style={{ color: "#6b6457" }}>
-                  {description || 'لا يوجد وصف للاستمارة.'}
+                  {description || 'يرجى تعبئة بياناتكم بدقة، حيث ستستخدم في إصدار الإجازة.'}
                 </p>
 
                 <div className="flex flex-col gap-5">
