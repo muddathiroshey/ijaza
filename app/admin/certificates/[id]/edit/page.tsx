@@ -629,7 +629,7 @@ function SpectrumColorPickerModal({ isOpen, initialColor, onClose, onSelectColor
         </div>
 
         {/* RGB fields */}
-        <div className="grid grid-cols-3 gap-2 mt-3">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginTop: '12px' }}>
           <div className="flex flex-col gap-0.5 text-right">
             <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>أحمر (R)</span>
             <input
@@ -1902,7 +1902,7 @@ export default function CertificateBuilderPage() {
                     <p className="text-[11px] font-bold mb-2 text-right" style={{ color: 'var(--text-muted)' }}>ألوان جاهزة</p>
                     
                     {/* Grid of Preset Colors */}
-                    <div className="grid grid-cols-10 gap-1.5 mb-3" style={{ direction: 'ltr' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: '6px', marginBottom: '12px', direction: 'ltr' }}>
                       {PRESET_COLORS.map((c) => (
                         <button
                           key={c}
