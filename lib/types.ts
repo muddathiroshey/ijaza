@@ -1,7 +1,7 @@
 export interface FormField {
   id: string
   label: string
-  type: 'text' | 'textarea' | 'date' | 'select'
+  type: 'text' | 'textarea' | 'date' | 'number' | 'email' | 'select'
   placeholder?: string
   options?: string[]
   required: boolean

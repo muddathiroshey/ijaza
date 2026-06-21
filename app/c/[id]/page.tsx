@@ -28,10 +28,23 @@ function Watermark() {
 
 function replacePlaceholders(html: string, formData: Record<string, string>): string {
   let replaced = html
-  Object.entries(formData).forEach(([key, value]) => {
-    const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g')
-    replaced = replaced.replace(regex, value)
+  
+  // Replace visual span field chips like: <span contenteditable="false" class="field-chip">{ field }</span>
+  replaced = replaced.replace(/<span[^>]*class="field-chip"[^>]*>\s*\{\s*([^}]+)\s*\}\s*<\/span>/g, (match, fieldName) => {
+    const key = fieldName.trim()
+    return formData[key] !== undefined ? formData[key] : match
   })
+
+  // Replace standard {{ field }} or { field } variables
+  Object.entries(formData || {}).forEach(([key, value]) => {
+    const escapedKey = key.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+    const regexDouble = new RegExp(`{{\\s*${escapedKey}\\s*}}`, 'g')
+    replaced = replaced.replace(regexDouble, value)
+    
+    const regexSingle = new RegExp(`{\\s*${escapedKey}\\s*}`, 'g')
+    replaced = replaced.replace(regexSingle, value)
+  })
+
   return replaced
 }
 

@@ -56,3 +56,24 @@ export async function POST(request: Request, ctx: RouteContext<'/api/certificate
     return NextResponse.json({ error: 'فشل إرسال التقديم' }, { status: 500 })
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const body = await request.json()
+    const { ids } = body
+    if (!ids || !Array.isArray(ids)) {
+      return NextResponse.json({ error: 'معرفات غير صالحة' }, { status: 400 })
+    }
+    const supabase = getSupabaseAdmin()
+    const { error } = await supabase
+      .from('submissions')
+      .delete()
+      .in('id', ids)
+
+    if (error) throw error
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json({ error: 'فشل حذف التقديمات' }, { status: 500 })
+  }
+}
