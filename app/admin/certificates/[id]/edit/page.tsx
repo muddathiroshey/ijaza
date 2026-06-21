@@ -1006,7 +1006,7 @@ export default function CertificateBuilderPage() {
       </header>
 
       {/* ===== تبويب الإجازة: محرر المستند ===== */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden" style={{ display: viewMode === 'builder' ? undefined : 'none' }}>
+      <div className={`flex-1 flex flex-col lg:flex-row overflow-hidden ${viewMode === 'builder' ? '' : 'hidden'}`}>
         <aside className="panel-right order-2 lg:order-1 w-full lg:w-72 flex-shrink-0 p-4 flex flex-col gap-5 overflow-y-auto">
           <div>
             <span className="field-label">اتجاه الصفحة</span>
@@ -1222,7 +1222,7 @@ export default function CertificateBuilderPage() {
       </div>
 
       {/* ===== تبويب الاستمارة ===== */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden" style={{ display: viewMode === 'form_editor' ? undefined : 'none' }}>
+      <div className={`flex-1 flex flex-col lg:flex-row overflow-hidden ${viewMode === 'form_editor' ? '' : 'hidden'}`}>
         <aside className="panel-right order-2 lg:order-1 w-full lg:w-72 flex-shrink-0 p-4 flex flex-col gap-4 overflow-y-auto">
           <p className="field-label">حقول النموذج ({formFields.length})</p>
           <div className="flex flex-col gap-0.5">
@@ -1468,7 +1468,7 @@ export default function CertificateBuilderPage() {
       </div>
 
       {/* ===== تبويب الردود ===== */}
-      <div className="content-bg flex-1 px-5 lg:px-8 py-7 overflow-y-auto text-right" style={{ display: viewMode === 'responses' ? undefined : 'none' }}>
+      <div className={`content-bg flex-1 px-5 lg:px-8 py-7 overflow-y-auto text-right ${viewMode === 'responses' ? '' : 'hidden'}`}>
         <div className="card-formal p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-full border flex-1 sm:max-w-xs" style={{ borderColor: '#e0d6b8', background: '#fffdf8' }}>
