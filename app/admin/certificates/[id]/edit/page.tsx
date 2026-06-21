@@ -59,10 +59,6 @@ const INITIAL_PAGE_HTML = `
   <div style="text-align:center; font-family:'Amiri',serif; font-size:26px; font-weight:700; color:#b8923a; margin-top:14px;"><span contenteditable="false" class="field-chip">{ اسم الطالب }</span></div>
   <div style="text-align:center; font-family:'Tajawal',sans-serif; font-size:14px; color:#1f2733; margin-top:20px; line-height:2;">قد أتمّ/ـت بنجاح حفظ جزء عمّ كاملاً بإتقان وضبط، بتاريخ <span contenteditable="false" class="field-chip">{ تاريخ الإصدار }</span></div>
   <div style="text-align:center; font-family:'Tajawal',sans-serif; font-size:11px; color:#a39c8c; margin-top:55px;">رقم الإجازة: <span contenteditable="false" class="field-chip">{ رقم الإجازة }</span></div>
-  <div style="display:flex; justify-content:space-between; margin-top:46px; padding:0 24px;">
-    <span contenteditable="false" class="image-chip">▣ توقيع المدير العام</span>
-    <span contenteditable="false" class="image-chip">▣ ختم الأكاديمية الرسمي</span>
-  </div>
 `
 
 const TYPE_OPTIONS = [
