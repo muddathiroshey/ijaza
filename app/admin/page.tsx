@@ -227,7 +227,6 @@ function CertificateCard({
 
 export default function AdminDashboard() {
   const [certificates, setCertificates] = useState<(Certificate & { submissions?: [{ count: number }] })[]>([])
-  const [recentSubmissions, setRecentSubmissions] = useState<any[]>([])
   const [stamps, setStamps] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
@@ -251,18 +250,15 @@ export default function AdminDashboard() {
 
   const loadDashboardData = useCallback(async () => {
     try {
-      const [certsRes, subsRes, assetsRes] = await Promise.all([
+      const [certsRes, assetsRes] = await Promise.all([
         fetch('/api/certificates'),
-        fetch('/api/submissions'),
         fetch('/api/assets'),
       ])
       
       const certsData = await certsRes.json()
-      const subsData = await subsRes.json()
       const assetsData = await assetsRes.json()
 
       setCertificates(certsData || [])
-      setRecentSubmissions(subsData || [])
       setStamps(assetsData || [])
     } catch {
       showToast('فشل تحميل بيانات لوحة التحكم', 'error')
@@ -567,58 +563,6 @@ export default function AdminDashboard() {
         {/* العمود الجانبي */}
         <div className="flex flex-col gap-6 min-w-0">
           
-          {/* آخر الردود */}
-          <div className="card-formal p-5 text-right">
-            <div className="panel-title flex justify-between mb-4">
-              <h3 className="font-amiri text-lg font-bold" style={{ color: 'var(--navy-dark)' }}>
-                آخر الردود
-              </h3>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: '#f3e6c0', color: '#9c7a1f' }}>
-                تحديث تلقائي
-              </span>
-            </div>
-            
-            {recentSubmissions.length === 0 ? (
-              <p className="text-xs text-center py-4" style={{ color: 'var(--text-muted)' }}>
-                لا توجد ردود مستلمة بعد.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {recentSubmissions.map((r, i) => {
-                  const studentName = r.data?.['اسم الطالب'] || Object.values(r.data)[0] || 'طالب جديد'
-                  const diff = Date.now() - new Date(r.created_at).getTime()
-                  let timeStr = 'قبل قليل'
-                  if (diff > 60 * 1000) {
-                    const mins = Math.floor(diff / (60 * 1000))
-                    if (mins < 60) timeStr = `منذ ${mins} دقيقة`
-                    else {
-                      const hrs = Math.floor(mins / 60)
-                      if (hrs < 24) timeStr = `منذ ${hrs} ساعة`
-                      else timeStr = new Date(r.created_at).toLocaleDateString('ar-SA')
-                    }
-                  }
-
-                  return (
-                    <div key={r.id || i} className="flex items-start gap-3">
-                      <div className="avatar-ring text-[10px]">{String(studentName).slice(0, 1)}</div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-main)' }}>
-                          {String(studentName)}
-                        </p>
-                        <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-                          {r.certificate?.title || 'إجازة'}
-                        </p>
-                      </div>
-                      <span className="text-[10px] flex-shrink-0 whitespace-nowrap" style={{ color: '#a39c8c' }}>
-                        {timeStr}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
           {/* الأختام والتوقيعات */}
           <div className="card-formal p-5 text-right">
             <div className="panel-title flex justify-between mb-4">
