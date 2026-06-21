@@ -242,6 +242,7 @@ export default function AdminDashboard() {
   const [showManageMembers, setShowManageMembers] = useState(false)
   const [newMemberName, setNewMemberName] = useState('')
   const [newMemberRole, setNewMemberRole] = useState<'مشرف' | 'عضو'>('عضو')
+  const [newMemberPassword, setNewMemberPassword] = useState('')
 
   // Creation States
   const [showCreate, setShowCreate] = useState(false)
@@ -405,7 +406,7 @@ export default function AdminDashboard() {
 
   function handleAddMember(e: React.FormEvent) {
     e.preventDefault()
-    if (!newMemberName.trim()) return
+    if (!newMemberName.trim() || !newMemberPassword.trim()) return
     const newMember = {
       id: String(Date.now()),
       name: newMemberName.trim(),
@@ -414,6 +415,7 @@ export default function AdminDashboard() {
     setTeamMembers((prev) => [...prev, newMember])
     setNewMemberName('')
     setNewMemberRole('عضو')
+    setNewMemberPassword('')
     setShowAddMember(false)
     showToast('تم إضافة عضو جديد للفريق ✓')
   }
@@ -822,6 +824,18 @@ export default function AdminDashboard() {
                   <option value="عضو">عضو</option>
                   <option value="مشرف">مشرف</option>
                 </select>
+              </div>
+              <div className="form-group text-right">
+                <label className="form-label" htmlFor="member-password">كلمة المرور *</label>
+                <input
+                  id="member-password"
+                  type="password"
+                  className="form-input text-right"
+                  value={newMemberPassword}
+                  onChange={(e) => setNewMemberPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
               </div>
               <div className="flex gap-2 justify-end mt-5">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddMember(false)}>
