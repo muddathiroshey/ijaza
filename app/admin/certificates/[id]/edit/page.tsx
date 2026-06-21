@@ -939,6 +939,21 @@ export default function EditCertificatePage() {
 
   return (
     <div dir="rtl" className="min-h-screen flex flex-col" style={{ background: 'var(--bg-cream)' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .toggle-btn-custom {
+          outline: none !important;
+          border: 1px solid transparent !important;
+          box-shadow: none !important;
+        }
+        .toggle-btn-custom:focus,
+        .toggle-btn-custom:focus-visible {
+          outline: none !important;
+          box-shadow: none !important;
+        }
+        .toggle-btn-custom.active-tab {
+          border: 1px solid var(--border-gold) !important;
+        }
+      ` }} />
       {/* ===== الشريط العلوي (Topbar) ===== */}
       <header className="topbar flex items-center gap-4 px-5 lg:px-7 py-3 shadow-sm z-10">
         <Link href="/admin" className="icon-btn flex items-center justify-center" title="رجوع إلى الإجازات">
@@ -960,19 +975,17 @@ export default function EditCertificatePage() {
         <div className="flex p-1 border bg-[#f7f2e7] gap-1" style={{ borderColor: 'var(--border-gold)', borderRadius: '30px' }}>
           <button
             type="button"
-            className="text-xs font-bold transition-all"
+            className={`text-xs font-bold transition-all toggle-btn-custom ${viewMode === 'builder' ? 'active-tab' : ''}`}
             style={{
               borderRadius: '28px',
               padding: '0.45rem 1.25rem',
               cursor: 'pointer',
               outline: 'none',
-              border: '1px solid transparent',
               ...(viewMode === 'builder'
                 ? {
                     background: '#fff',
                     color: 'var(--navy-dark)',
                     boxShadow: '0 2px 6px rgba(22, 36, 63, 0.08)',
-                    borderColor: 'var(--border-gold)'
                   }
                 : {
                     background: 'transparent',
@@ -986,19 +999,17 @@ export default function EditCertificatePage() {
           </button>
           <button
             type="button"
-            className="text-xs font-bold transition-all"
+            className={`text-xs font-bold transition-all toggle-btn-custom ${viewMode === 'form_editor' ? 'active-tab' : ''}`}
             style={{
               borderRadius: '28px',
               padding: '0.45rem 1.25rem',
               cursor: 'pointer',
               outline: 'none',
-              border: '1px solid transparent',
               ...(viewMode === 'form_editor'
                 ? {
                     background: '#fff',
                     color: 'var(--navy-dark)',
                     boxShadow: '0 2px 6px rgba(22, 36, 63, 0.08)',
-                    borderColor: 'var(--border-gold)'
                   }
                 : {
                     background: 'transparent',
@@ -1012,19 +1023,17 @@ export default function EditCertificatePage() {
           </button>
           <button
             type="button"
-            className="text-xs font-bold transition-all"
+            className={`text-xs font-bold transition-all toggle-btn-custom ${viewMode === 'responses' ? 'active-tab' : ''}`}
             style={{
               borderRadius: '28px',
               padding: '0.45rem 1.25rem',
               cursor: 'pointer',
               outline: 'none',
-              border: '1px solid transparent',
               ...(viewMode === 'responses'
                 ? {
                     background: '#fff',
                     color: 'var(--navy-dark)',
                     boxShadow: '0 2px 6px rgba(22, 36, 63, 0.08)',
-                    borderColor: 'var(--border-gold)'
                   }
                 : {
                     background: 'transparent',
