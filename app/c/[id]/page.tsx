@@ -26,6 +26,15 @@ function Watermark() {
   )
 }
 
+function replacePlaceholders(html: string, formData: Record<string, string>): string {
+  let replaced = html
+  Object.entries(formData).forEach(([key, value]) => {
+    const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g')
+    replaced = replaced.replace(regex, value)
+  })
+  return replaced
+}
+
 export default function StudentCertificatePage() {
   const { id } = useParams<{ id: string }>()
   const [cert, setCert] = useState<Certificate | null>(null)
@@ -353,8 +362,12 @@ export default function StudentCertificatePage() {
                   direction: 'rtl',
                   zIndex: 2,
                 }}
+                {...(builderConfig.html
+                  ? { dangerouslySetInnerHTML: { __html: replacePlaceholders(builderConfig.html, formData) } }
+                  : {}
+                )}
               >
-                {builderConfig.elements.filter((el: any) => el.type !== 'image' && !el.hidden).map((el: any) => {
+                {!builderConfig.html && builderConfig.elements.filter((el: any) => el.type !== 'image' && !el.hidden).map((el: any) => {
                   let textValue = el.text
                   if (el.type === 'field') {
                     textValue = formData[el.key] || el.text

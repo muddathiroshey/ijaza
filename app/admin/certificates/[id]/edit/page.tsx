@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, forwardRef } from 'react'
+import { useEffect, useState, useCallback, useRef, forwardRef, useImperativeHandle } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Certificate, FormField, Asset } from '@/lib/types'
@@ -31,59 +31,246 @@ import {
 import DateTimePickerModal, { MONTH_NAMES, getHour12 } from './DateTimePickerModal'
 
 
-/* ---------------------------------- BorderlessTextarea ---------------------------------- */
+/* ---------------------------------- Rich Text Editor ---------------------------------- */
 
-interface BorderlessTextareaProps {
-  value: string
-  onChange: (val: string) => void
-  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
-  onFocus: () => void
-  style: React.CSSProperties
-  placeholder?: string
-  isActive: boolean
+interface ParagraphStyle {
+  font: 'Amiri' | 'Tajawal'
+  size: number
+  color: string
+  align: 'right' | 'center' | 'left'
+  weight: number
 }
 
-const BorderlessTextarea = forwardRef<HTMLTextAreaElement, BorderlessTextareaProps>((props, ref) => {
-  const localRef = useRef<HTMLTextAreaElement>(null)
+interface EditableDocumentProps {
+  initialHtml: string
+  onChange: (html: string) => void
+  onSelectionChange: (style: ParagraphStyle | null) => void
+}
 
-  useEffect(() => {
-    if (typeof ref === 'function') {
-      ref(localRef.current)
-    } else if (ref) {
-      (ref as any).current = localRef.current
-    }
-  }, [ref])
+export interface EditableDocumentRef {
+  applyStyle: (stylePatch: { font?: string; size?: number; color?: string; align?: string }) => void
+  insertPlaceholder: (name: string) => void
+  appendParagraph: () => void
+}
 
+const EditableDocument = forwardRef<EditableDocumentRef, EditableDocumentProps>(({ initialHtml, onChange, onSelectionChange }, ref) => {
+  const editorRef = useRef<HTMLDivElement>(null)
+  const lastHtmlRef = useRef(initialHtml)
+
+  // Initialize/update content from external props (without caret resets during active typing)
   useEffect(() => {
-    const textarea = localRef.current
-    if (textarea) {
-      textarea.style.height = 'auto'
-      textarea.style.height = `${textarea.scrollHeight}px`
+    if (editorRef.current && initialHtml && editorRef.current.innerHTML !== initialHtml) {
+      editorRef.current.innerHTML = initialHtml
+      lastHtmlRef.current = initialHtml
     }
-  }, [props.value])
+  }, [initialHtml])
+
+  // Ensure editor never becomes completely empty of paragraphs
+  useEffect(() => {
+    if (editorRef.current && !editorRef.current.innerHTML.trim()) {
+      editorRef.current.innerHTML = `<p style="font-family: 'Tajawal', sans-serif; font-size: 14px; text-align: center; color: #1f2733;">&nbsp;</p>`
+      lastHtmlRef.current = editorRef.current.innerHTML
+    }
+  }, [])
+
+  const handleSelectionChange = useCallback(() => {
+    if (!editorRef.current) return
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) {
+      onSelectionChange(null)
+      return
+    }
+
+    const range = sel.getRangeAt(0)
+    let node: Node | null = range.startContainer
+
+    // Traverse up to find paragraph element inside editor
+    let pNode: HTMLParagraphElement | null = null
+    while (node && node !== editorRef.current) {
+      if (node.nodeName === 'P') {
+        pNode = node as HTMLParagraphElement
+        break
+      }
+      node = node.parentNode
+    }
+
+    if (pNode) {
+      const style = pNode.style
+      const fontFamily = style.fontFamily || ''
+      const font = fontFamily.includes('Amiri') ? 'Amiri' : 'Tajawal'
+      const size = parseInt(style.fontSize) || 14
+      const color = style.color || '#1f2733'
+      const textAlign = style.textAlign || 'center'
+      const align: 'right' | 'center' | 'left' = (textAlign === 'right' || textAlign === 'left') ? textAlign : 'center'
+      const weight = parseInt(style.fontWeight) || 400
+
+      onSelectionChange({ font, size, color, align, weight })
+    } else {
+      onSelectionChange(null)
+    }
+  }, [onSelectionChange])
+
+  useImperativeHandle(ref, () => ({
+    applyStyle: (stylePatch) => {
+      if (!editorRef.current) return
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return
+
+      const paragraphs: HTMLParagraphElement[] = []
+      const range = sel.getRangeAt(0)
+
+      // Collect all paragraphs intersecting with selection
+      const allPs = editorRef.current.querySelectorAll('p')
+      allPs.forEach((p) => {
+        if (range.intersectsNode(p)) {
+          paragraphs.push(p as HTMLParagraphElement)
+        }
+      })
+
+      // Fallback: search parent tree of start container
+      if (paragraphs.length === 0) {
+        let node: Node | null = range.startContainer
+        while (node && node !== editorRef.current) {
+          if (node.nodeName === 'P') {
+            paragraphs.push(node as HTMLParagraphElement)
+            break
+          }
+          node = node.parentNode
+        }
+      }
+
+      if (paragraphs.length > 0) {
+        paragraphs.forEach((pNode) => {
+          if (stylePatch.font !== undefined) {
+            pNode.style.fontFamily = stylePatch.font === 'Amiri' ? "'Amiri', serif" : "'Tajawal', sans-serif"
+          }
+          if (stylePatch.size !== undefined) {
+            pNode.style.fontSize = `${stylePatch.size}px`
+          }
+          if (stylePatch.color !== undefined) {
+            pNode.style.color = stylePatch.color
+          }
+          if (stylePatch.align !== undefined) {
+            pNode.style.textAlign = stylePatch.align
+          }
+        })
+
+        const currentHtml = editorRef.current.innerHTML
+        lastHtmlRef.current = currentHtml
+        onChange(currentHtml)
+      }
+    },
+    insertPlaceholder: (name) => {
+      if (!editorRef.current) return
+      editorRef.current.focus()
+
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return
+
+      const range = sel.getRangeAt(0)
+      range.deleteContents()
+
+      const placeholderText = `{{${name}}}`
+      const textNode = document.createTextNode(placeholderText)
+      range.insertNode(textNode)
+
+      // Move caret after inserted text node
+      range.setStartAfter(textNode)
+      range.setEndAfter(textNode)
+      sel.removeAllRanges()
+      sel.addRange(range)
+
+      const currentHtml = editorRef.current.innerHTML
+      lastHtmlRef.current = currentHtml
+      onChange(currentHtml)
+    },
+    appendParagraph: () => {
+      if (!editorRef.current) return
+      const p = document.createElement('p')
+      p.style.fontFamily = "'Tajawal', sans-serif"
+      p.style.fontSize = '14px'
+      p.style.textAlign = 'center'
+      p.style.color = '#1f2733'
+      p.innerHTML = 'نص جديد'
+      editorRef.current.appendChild(p)
+
+      const currentHtml = editorRef.current.innerHTML
+      lastHtmlRef.current = currentHtml
+      onChange(currentHtml)
+
+      // Focus new paragraph
+      p.focus()
+      const sel = window.getSelection()
+      if (sel) {
+        const range = document.createRange()
+        range.selectNodeContents(p)
+        sel.removeAllRanges()
+        sel.addRange(range)
+      }
+      handleSelectionChange()
+    }
+  }))
+
+  const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
+    const currentHtml = e.currentTarget.innerHTML
+    if (currentHtml !== lastHtmlRef.current) {
+      lastHtmlRef.current = currentHtml
+      onChange(currentHtml)
+    }
+  }
 
   return (
-    <textarea
-      ref={localRef}
-      value={props.value}
-      onChange={(e) => props.onChange(e.target.value)}
-      onKeyDown={props.onKeyDown}
-      onFocus={props.onFocus}
-      placeholder={props.placeholder}
-      rows={1}
+    <div
+      ref={editorRef}
+      contentEditable
+      onInput={handleInput}
+      onMouseUp={handleSelectionChange}
+      onKeyUp={handleSelectionChange}
+      onFocus={handleSelectionChange}
       dir="rtl"
-      className={`w-full bg-transparent border-none outline-none resize-none overflow-hidden p-1 rounded transition-all duration-150 ${
-        props.isActive ? 'bg-[#b8923a]/5 ring-1 ring-[#b8923a]/30' : 'hover:bg-black/[0.01]'
-      }`}
+      className="w-full bg-transparent border-none outline-none resize-none overflow-hidden p-3 rounded-lg min-h-[300px]"
       style={{
-        ...props.style,
-        display: 'block',
         direction: 'rtl',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        gap: '0.4rem',
+        fontFamily: "'Tajawal', sans-serif",
       }}
     />
   )
 })
-BorderlessTextarea.displayName = 'BorderlessTextarea'
+EditableDocument.displayName = 'EditableDocument'
+
+/* ----------------------------- Helpers for Rich Editor ----------------------------- */
+
+function convertElementsToHtml(elements: any[]): string {
+  return elements
+    .filter((el) => el.type !== 'image')
+    .map((el) => {
+      const fontStr = el.font === 'Amiri' ? "'Amiri', serif" : "'Tajawal', sans-serif"
+      const alignStr = el.align || 'center'
+      const weightStr = el.weight || 400
+      const colorStr = el.color || '#1f2733'
+      const textVal = el.type === 'field' ? `{{${el.key}}}` : el.text
+      return `<p style="font-family: ${fontStr}; font-size: ${el.size}px; font-weight: ${weightStr}; color: ${colorStr}; text-align: ${alignStr};">${textVal || '&nbsp;'}</p>`
+    })
+    .join('')
+}
+
+function extractPlaceholders(html: string): string[] {
+  const matches: string[] = []
+  const regex = /\{\{([^}]+)\}\}/g
+  const cleanText = html.replace(/<[^>]*>/g, ' ')
+  let match
+  while ((match = regex.exec(cleanText)) !== null) {
+    const key = match[1].trim()
+    if (key && !matches.includes(key)) {
+      matches.push(key)
+    }
+  }
+  return matches
+}
 
 
 /* ---------------------------------- القوالب الافتراضية ---------------------------------- */
@@ -121,6 +308,11 @@ export default function EditCertificatePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [bg, setBg] = useState(BG_SWATCHES[0])
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape')
+
+  // New Rich Editor States & Refs
+  const [editorHtml, setEditorHtml] = useState('')
+  const [activeStyle, setActiveStyle] = useState<ParagraphStyle | null>(null)
+  const documentRef = useRef<EditableDocumentRef>(null)
 
   // Auto Close Settings
   const [autoCloseEnabled, setAutoCloseEnabled] = useState(false)
@@ -161,53 +353,37 @@ export default function EditCertificatePage() {
   }, [autoCloseEnabled, autoCloseAt])
 
 
-  // Synchronize canvas field elements with formFields array
+  // Synchronize canvas field elements (from rich text placeholders) with formFields array
   useEffect(() => {
-    const canvasFields = elements.filter((el) => el.type === 'field')
+    const placeholderKeys = extractPlaceholders(editorHtml)
 
     setFormFields((prev) => {
-      // 1. Remove deleted canvas fields (canvas fields are fields whose id does NOT start with 'extra-')
+      // 1. Remove deleted canvas fields (field id doesn't start with 'extra-')
       let updated = prev.filter((field) => {
         const isCanvasField = !field.id.startsWith('extra-')
         if (isCanvasField) {
-          const canvasEl = elements.find((el) => el.id === field.id)
-          return canvasEl && canvasEl.type === 'field'
+          return placeholderKeys.includes(field.variable)
         }
         return true
       })
 
-      // 2. Update renamed canvas fields (keeping their relative position in the array)
-      updated = updated.map((field) => {
-        const canvasEl = canvasFields.find((el) => el.id === field.id)
-        if (canvasEl) {
-          if (field.variable !== canvasEl.key) {
-            return {
-              ...field,
-              label: field.label === field.variable ? canvasEl.key : field.label,
-              variable: canvasEl.key,
-            }
-          }
-        }
-        return field
-      })
-
-      // 3. Append any NEW canvas fields that are not in the list yet
-      canvasFields.forEach((el) => {
-        const exists = updated.some((f) => f.id === el.id)
+      // 2. Add any NEW canvas fields that are not in the list yet
+      placeholderKeys.forEach((key) => {
+        const exists = updated.some((f) => f.variable === key)
         if (!exists) {
           updated.push({
-            id: el.id,
-            label: el.key,
-            type: el.key.includes('تاريخ') ? 'date' : 'text',
+            id: `field-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            label: key,
+            type: key.includes('تاريخ') ? 'date' : 'text',
             required: true,
-            variable: el.key,
+            variable: key,
           })
         }
       })
 
       return updated
     })
-  }, [elements])
+  }, [editorHtml])
 
   // Form Editor Helper Functions
   function moveField(index: number, direction: 'up' | 'down') {
@@ -348,7 +524,6 @@ export default function EditCertificatePage() {
     }
   }
 
-
   // Drag Refs
   const canvasRef = useRef<HTMLDivElement>(null)
   const dragState = useRef<{ id: string; startX: number; startY: number; originX: number; originY: number } | null>(null)
@@ -384,14 +559,25 @@ export default function EditCertificatePage() {
       if (certData.template_html && certData.template_html.startsWith('{')) {
         try {
           const config = JSON.parse(certData.template_html)
-          setElements(config.elements || INITIAL_ELEMENTS)
           setBg(config.bg || BG_SWATCHES[0])
           setOrientation(config.orientation || 'landscape')
+          
+          if (config.html) {
+            setEditorHtml(config.html)
+            setElements(config.elements || [])
+          } else {
+            // Older config format conversion
+            const legacyElements = config.elements || INITIAL_ELEMENTS
+            setEditorHtml(convertElementsToHtml(legacyElements))
+            setElements(legacyElements.filter((el: any) => el.type === 'image'))
+          }
         } catch {
-          setElements(INITIAL_ELEMENTS)
+          setEditorHtml(convertElementsToHtml(INITIAL_ELEMENTS))
+          setElements(INITIAL_ELEMENTS.filter(el => el.type === 'image'))
         }
       } else {
-        setElements(INITIAL_ELEMENTS)
+        setEditorHtml(convertElementsToHtml(INITIAL_ELEMENTS))
+        setElements(INITIAL_ELEMENTS.filter(el => el.type === 'image'))
       }
 
       // Initialize Auto Close Settings
@@ -418,7 +604,7 @@ export default function EditCertificatePage() {
 
   const selected = elements.find((e) => e.id === selectedId) || null
 
-  // Element Actions
+  // Element Actions (for image overlays)
   function updateElement(elId: string, patch: any) {
     setElements((prev) => prev.map((it) => (it.id === elId ? { ...it, ...patch } : it)))
   }
@@ -428,109 +614,26 @@ export default function EditCertificatePage() {
     if (selectedId === elId) setSelectedId(null)
   }
 
-  function handleTextChange(elId: string, value: string) {
-    setElements((prev) =>
-      prev.map((item) => {
-        if (item.id === elId) {
-          if (item.type === 'field') {
-            return { ...item, key: value }
-          }
-          return { ...item, text: value }
-        }
-        return item
-      })
-    )
-  }
-
-  function handleTextKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>, el: any, index: number) {
-    const textEls = elements.filter((item) => item.type !== 'image')
-    const currentTextIndex = textEls.findIndex((item) => item.id === el.id)
-
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      const newId = `new-${idCounter.current++}`
-      const newEl = {
-        id: newId,
-        type: 'static',
-        text: '',
-        font: el.font || 'Tajawal',
-        size: el.size || 14,
-        weight: el.weight || 400,
-        color: el.color || '#1f2733',
-        align: el.align || 'center',
-      }
-
-      const elementIndexInMain = elements.findIndex((item) => item.id === el.id)
-      const newElements = [...elements]
-      newElements.splice(elementIndexInMain + 1, 0, newEl)
-      
-      setElements(newElements)
-      setSelectedId(newId)
-
-      setTimeout(() => {
-        textareaRefs.current[newId]?.focus()
-      }, 50)
-    }
-
-    if (e.key === 'Backspace') {
-      const val = e.currentTarget.value
-      if (val === '') {
-        e.preventDefault()
-        if (currentTextIndex > 0) {
-          const prevEl = textEls[currentTextIndex - 1]
-          
-          deleteElement(el.id)
-          setSelectedId(prevEl.id)
-          
-          setTimeout(() => {
-            const prevTextarea = textareaRefs.current[prevEl.id]
-            if (prevTextarea) {
-              prevTextarea.focus()
-              const len = prevTextarea.value.length
-              prevTextarea.setSelectionRange(len, len)
-            }
-          }, 50)
-        }
-      }
-    }
-
-    if (e.key === 'ArrowUp') {
-      if (currentTextIndex > 0) {
-        e.preventDefault()
-        const prevEl = textEls[currentTextIndex - 1]
-        setSelectedId(prevEl.id)
-        textareaRefs.current[prevEl.id]?.focus()
-      }
-    }
-
-    if (e.key === 'ArrowDown') {
-      if (currentTextIndex < textEls.length - 1) {
-        e.preventDefault()
-        const nextEl = textEls[currentTextIndex + 1]
-        setSelectedId(nextEl.id)
-        textareaRefs.current[nextEl.id]?.focus()
-      }
-    }
-  }
-
   function addElement(type: 'static' | 'field' | 'image') {
-    const newId = `new-${idCounter.current++}`
-    let el: any = { id: newId, type, x: 50, y: 50, font: 'Tajawal', size: 14, weight: 400, color: '#1f2733', align: 'center' }
-    
     if (type === 'static') {
-      el.text = 'نص جديد'
+      documentRef.current?.appendParagraph()
     } else if (type === 'field') {
-      el.key = 'حقل متغيّر'
-      el.text = 'نص تجريبي'
+      documentRef.current?.insertPlaceholder('حقل جديد')
     } else if (type === 'image') {
-      el.label = 'ختم/توقيع'
-      el.w = 14
-      el.h = 14
-      el.url = ''
+      const newId = `new-image-${idCounter.current++}`
+      const el = {
+        id: newId,
+        type: 'image',
+        label: 'ختم/توقيع',
+        x: 50,
+        y: 80,
+        w: 14,
+        h: 14,
+        url: '',
+      }
+      setElements((prev) => [...prev, el])
+      setSelectedId(newId)
     }
-
-    setElements((prev) => [...prev, el])
-    setSelectedId(newId)
   }
 
   // Drag and Drop Handlers
@@ -571,14 +674,15 @@ export default function EditCertificatePage() {
   async function handleSave() {
     setSaving(true)
     try {
-      // 1. Compile visual layout state into JSON configuration string
+      // Compile visual layout state into JSON configuration string
       const configJson = JSON.stringify({
+        html: editorHtml,
         elements,
         bg,
         orientation,
       })
 
-      // 2. Patch database record
+      // Patch database record
       const res = await fetch(`/api/certificates/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -832,27 +936,17 @@ export default function EditCertificatePage() {
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
               >
-                {elements.filter(el => el.type !== 'image' && !el.hidden).map((el, idx) => (
-                  <BorderlessTextarea
-                    key={el.id}
-                    ref={(ref) => {
-                      textareaRefs.current[el.id] = ref
-                    }}
-                    value={el.type === 'field' ? (selectedId === el.id ? el.key : `{{${el.key}}}`) : el.text}
-                    onChange={(val) => handleTextChange(el.id, val)}
-                    onKeyDown={(e) => handleTextKeyDown(e, el, idx)}
-                    onFocus={() => setSelectedId(el.id)}
-                    isActive={selectedId === el.id}
-                    placeholder={el.type === 'field' ? 'اسم الحقل...' : 'نص السطر...'}
-                    style={{
-                      fontFamily: el.font === 'Amiri' ? "'Amiri', serif" : "'Tajawal', sans-serif",
-                      fontSize: `${el.size}px`,
-                      fontWeight: el.weight || 400,
-                      color: el.color,
-                      textAlign: el.align || 'center',
-                    }}
-                  />
-                ))}
+                <EditableDocument
+                  ref={documentRef}
+                  initialHtml={editorHtml}
+                  onChange={setEditorHtml}
+                  onSelectionChange={(style) => {
+                    setActiveStyle(style)
+                    if (style) {
+                      setSelectedId('text-editor')
+                    }
+                  }}
+                />
               </div>
 
               {/* Draggable Stamps and Signatures */}
@@ -911,12 +1005,109 @@ export default function EditCertificatePage() {
         <aside className="panel order-3 w-full lg:w-80 flex-shrink-0 p-5 overflow-y-auto text-right" style={{ background: 'var(--bg-card)', borderRight: '1px solid var(--border-gold)' }}>
           {!selected ? (
             <div className="flex flex-col gap-5">
+              {/* Text Formatting Controls */}
+              {activeStyle && (
+                <div className="flex flex-col gap-4">
+                  <p className="font-amiri text-base font-bold" style={{ color: 'var(--navy-dark)' }}>
+                    تنسيق النص المحدد
+                  </p>
+                  
+                  {/* Font selector */}
+                  <div>
+                    <span className="field-label">الخط</span>
+                    <select
+                      className="field-select"
+                      value={activeStyle.font}
+                      onChange={(e) => {
+                        const newFont = e.target.value
+                        setActiveStyle(prev => prev ? { ...prev, font: newFont as any } : null)
+                        documentRef.current?.applyStyle({ font: newFont })
+                      }}
+                    >
+                      <option value="Amiri">Amiri — خط كلاسيكي</option>
+                      <option value="Tajawal">Tajawal — خط حديث</option>
+                    </select>
+                  </div>
+
+                  {/* Font Size slider */}
+                  <div>
+                    <span className="field-label">الحجم ({activeStyle.size}px)</span>
+                    <input
+                      type="range"
+                      min="9"
+                      max="48"
+                      value={activeStyle.size}
+                      onChange={(e) => {
+                        const newSize = Number(e.target.value)
+                        setActiveStyle(prev => prev ? { ...prev, size: newSize } : null)
+                        documentRef.current?.applyStyle({ size: newSize })
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Alignment buttons */}
+                  <div>
+                    <span className="field-label">المحاذاة</span>
+                    <div className="flex gap-2">
+                      <button
+                        className={`align-btn ${activeStyle.align === 'right' ? 'active' : ''}`}
+                        onClick={() => {
+                          setActiveStyle(prev => prev ? { ...prev, align: 'right' } : null)
+                          documentRef.current?.applyStyle({ align: 'right' })
+                        }}
+                      >
+                        <AlignRight size={14} />
+                      </button>
+                      <button
+                        className={`align-btn ${activeStyle.align === 'center' ? 'active' : ''}`}
+                        onClick={() => {
+                          setActiveStyle(prev => prev ? { ...prev, align: 'center' } : null)
+                          documentRef.current?.applyStyle({ align: 'center' })
+                        }}
+                      >
+                        <AlignCenter size={14} />
+                      </button>
+                      <button
+                        className={`align-btn ${activeStyle.align === 'left' ? 'active' : ''}`}
+                        onClick={() => {
+                          setActiveStyle(prev => prev ? { ...prev, align: 'left' } : null)
+                          documentRef.current?.applyStyle({ align: 'left' })
+                        }}
+                      >
+                        <AlignLeft size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Color swatches */}
+                  <div>
+                    <span className="field-label">لون الخط</span>
+                    <div className="flex gap-2 flex-wrap">
+                      {COLOR_SWATCHES.map((c) => (
+                        <button
+                          key={c}
+                          className={`swatch ${activeStyle.color === c ? 'active' : ''}`}
+                          style={{ background: c }}
+                          onClick={() => {
+                            setActiveStyle(prev => prev ? { ...prev, color: c } : null)
+                            documentRef.current?.applyStyle({ color: c })
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="divider" style={{ background: 'var(--border-gold)', height: '1px', margin: '0.5rem 0' }} />
+                </div>
+              )}
+
               <div>
                 <p className="font-amiri text-lg font-bold" style={{ color: 'var(--navy-dark)' }}>
                   إعدادات الإجازة
                 </p>
                 <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                  انقر على أي عنصر داخل القالب لتعديل خصائصه وتنسيقه
+                  انقر على النص في الإجازة لتعديل خصائصه وتنسيقه
                 </p>
               </div>
 
@@ -1053,185 +1244,76 @@ export default function EditCertificatePage() {
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              {/* Selected Element Controls */}
-              {selected.type === 'static' && (
-                <>
-                  <span className="inline-flex w-fit items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: '#efe9da', color: '#6b6457' }}>
-                    <Type size={11} />
-                    نص ثابت
-                  </span>
-                  <div>
-                    <span className="field-label">محتوى النص</span>
-                    <textarea
-                      className="field-select"
-                      rows={2}
-                      value={selected.text}
-                      onChange={(e) => updateElement(selected.id, { text: e.target.value })}
-                    />
-                  </div>
-                </>
-              )}
+              {/* Selected Element Controls (Only images are selectable elements now) */}
+              <span className="inline-flex w-fit items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: '#f3e6c0', color: '#9c7a1f' }}>
+                <ImageIcon size={11} />
+                عنصر ختم / توقيع
+              </span>
+              
+              <div>
+                <span className="field-label">اسم العنصر</span>
+                <input
+                  className="field-select"
+                  value={selected.label}
+                  onChange={(e) => updateElement(selected.id, { label: e.target.value })}
+                />
+              </div>
 
-              {selected.type === 'field' && (
-                <>
-                  <span className="inline-flex w-fit items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: '#f3e6c0', color: '#9c7a1f' }}>
-                    <span className="font-bold text-[9px]">{"{}"}</span>
-                    حقل متغيّر في النموذج
-                  </span>
-                  <div className="rounded-lg p-2.5 text-[11px] leading-relaxed text-right" style={{ background: '#faf1de', color: '#7a5c1f' }}>
-                    سيقوم الطالب بتعبئة هذا الحقل عند التقديم لتظهر قيمته في هذا الموضع.
-                  </div>
-                  <div>
-                    <span className="field-label">اسم الحقل (تسمية الإدخال)</span>
-                    <input
-                      className="field-select"
-                      value={selected.key}
-                      onChange={(e) => updateElement(selected.id, { key: e.target.value })}
-                    />
-                  </div>
-                </>
-              )}
-
-              {selected.type === 'image' && (
-                <>
-                  <span className="inline-flex w-fit items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: '#f3e6c0', color: '#9c7a1f' }}>
-                    <ImageIcon size={11} />
-                    عنصر ختم / توقيع
-                  </span>
-                  
-                  <div>
-                    <span className="field-label">اسم العنصر</span>
-                    <input
-                      className="field-select"
-                      value={selected.label}
-                      onChange={(e) => updateElement(selected.id, { label: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <span className="field-label">اختر صورة من المحفوظات</span>
-                    {assets.length === 0 ? (
-                      <p className="text-[10px] text-center p-2" style={{ color: 'var(--text-muted)' }}>
-                        لا توجد أختام أو تواقيع محفوظة.
-                      </p>
-                    ) : (
-                      <div className="grid grid-cols-3 gap-2">
-                        {assets.map((asset) => (
-                          <button
-                            key={asset.id}
-                            className="aspect-square rounded-lg flex items-center justify-center overflow-hidden border p-1"
-                            style={{
-                              background: '#f7f2e7',
-                              borderColor: selected.url === asset.public_url ? 'var(--gold-focus)' : '#e7ddc4',
-                              borderWidth: selected.url === asset.public_url ? '2px' : '1px',
-                            }}
-                            title={asset.name}
-                            onClick={() => updateElement(selected.id, { url: asset.public_url, label: asset.name })}
-                          >
-                            <img src={asset.public_url} alt={asset.name} className="w-full h-full object-contain pointer-events-none" />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <Link href="/admin/assets" className="text-[10px] font-bold block mt-2 text-left" style={{ color: 'var(--gold-main)' }}>
-                      رفع صورة جديدة ↗
-                    </Link>
-                  </div>
-
-                  <div>
-                    <span className="field-label">حجم الصورة على الشهادة</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] w-10 text-left" style={{ color: '#9c948a' }}>العرض</span>
-                      <input
-                        type="range"
-                        min="5"
-                        max="35"
-                        value={selected.w}
-                        onChange={(e) => updateElement(selected.id, { w: Number(e.target.value) })}
-                        className="flex-1"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] w-10 text-left" style={{ color: '#9c948a' }}>الارتفاع</span>
-                      <input
-                        type="range"
-                        min="5"
-                        max="35"
-                        value={selected.h}
-                        onChange={(e) => updateElement(selected.id, { h: Number(e.target.value) })}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Common Typography and Styling Controls (only for text/field types) */}
-              {selected.type !== 'image' && (
-                <>
-                  <div>
-                    <span className="field-label">الخط</span>
-                    <select
-                      className="field-select"
-                      value={selected.font}
-                      onChange={(e) => updateElement(selected.id, { font: e.target.value })}
-                    >
-                      <option value="Amiri">Amiri — خط كلاسيكي</option>
-                      <option value="Tajawal">Tajawal — خط حديث</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <span className="field-label">الحجم ({selected.size}px)</span>
-                    <input
-                      type="range"
-                      min="9"
-                      max="48"
-                      value={selected.size}
-                      onChange={(e) => updateElement(selected.id, { size: Number(e.target.value) })}
-                      className="w-full"
-                    />
-                  </div>
-
-                  <div>
-                    <span className="field-label">المحاذاة</span>
-                    <div className="flex gap-2">
+              <div>
+                <span className="field-label">اختر صورة من المحفوظات</span>
+                {assets.length === 0 ? (
+                  <p className="text-[10px] text-center p-2" style={{ color: 'var(--text-muted)' }}>
+                    لا توجد أختام أو تواقيع محفوظة.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {assets.map((asset) => (
                       <button
-                        className={`align-btn ${selected.align === 'right' ? 'active' : ''}`}
-                        onClick={() => updateElement(selected.id, { align: 'right' })}
+                        key={asset.id}
+                        className="aspect-square rounded-lg flex items-center justify-center overflow-hidden border p-1"
+                        style={{
+                          background: '#f7f2e7',
+                          borderColor: selected.url === asset.public_url ? 'var(--gold-focus)' : '#e7ddc4',
+                          borderWidth: selected.url === asset.public_url ? '2px' : '1px',
+                        }}
+                        title={asset.name}
+                        onClick={() => updateElement(selected.id, { url: asset.public_url, label: asset.name })}
                       >
-                        <AlignRight size={14} />
+                        <img src={asset.public_url} alt={asset.name} className="w-full h-full object-contain pointer-events-none" />
                       </button>
-                      <button
-                        className={`align-btn ${selected.align === 'center' ? 'active' : ''}`}
-                        onClick={() => updateElement(selected.id, { align: 'center' })}
-                      >
-                        <AlignCenter size={14} />
-                      </button>
-                      <button
-                        className={`align-btn ${selected.align === 'left' ? 'active' : ''}`}
-                        onClick={() => updateElement(selected.id, { align: 'left' })}
-                      >
-                        <AlignLeft size={14} />
-                      </button>
-                    </div>
+                    ))}
                   </div>
+                )}
+                <Link href="/admin/assets" className="text-[10px] font-bold block mt-2 text-left" style={{ color: 'var(--gold-main)' }}>
+                  رفع صورة جديدة ↗
+                </Link>
+              </div>
 
-                  <div>
-                    <span className="field-label">لون الخط</span>
-                    <div className="flex gap-2">
-                      {COLOR_SWATCHES.map((c) => (
-                        <button
-                          key={c}
-                          className={`swatch ${selected.color === c ? 'active' : ''}`}
-                          style={{ background: c }}
-                          onClick={() => updateElement(selected.id, { color: c })}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
+              <div>
+                <span className="field-label">حجم الصورة على الشهادة</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] w-10 text-left" style={{ color: '#9c948a' }}>العرض</span>
+                  <input
+                    type="range"
+                    min="5"
+                    max="35"
+                    value={selected.w}
+                    onChange={(e) => updateElement(selected.id, { w: Number(e.target.value) })}
+                    className="flex-1"
+                  />
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] w-10 text-left" style={{ color: '#9c948a' }}>الارتفاع</span>
+                  <input
+                    type="range"
+                    min="5"
+                    max="35"
+                    value={selected.h}
+                    onChange={(e) => updateElement(selected.id, { h: Number(e.target.value) })}
+                    className="flex-1"
+                  />
+                </div>
+              </div>
 
               <div className="divider" style={{ background: 'var(--border-gold)', height: '1px', margin: '0.5rem 0' }} />
 
