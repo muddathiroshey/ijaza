@@ -26,6 +26,17 @@ import {
   ChevronUp,
   Calendar,
   Clock,
+  List,
+  Hash,
+  Mail,
+  Download,
+  Search,
+  X,
+  ChevronRight,
+  ChevronLeft,
+  CheckCircle2,
+  Check,
+  Award,
 } from 'lucide-react'
 
 import DateTimePickerModal, { MONTH_NAMES, getHour12 } from './DateTimePickerModal'
@@ -325,9 +336,18 @@ export default function EditCertificatePage() {
   const [showDatePicker, setShowDatePicker] = useState(false)
 
   // Form Editor Settings
-  const [viewMode, setViewMode] = useState<'builder' | 'form_editor'>('builder')
+  const [viewMode, setViewMode] = useState<'builder' | 'form_editor' | 'responses'>('builder')
   const [formFields, setFormFields] = useState<FormField[]>([])
   const [activeFieldId, setActiveFieldId] = useState<string | null>(null)
+
+  // Submissions (الطلبات) state
+  const [submissions, setSubmissions] = useState<any[] | null>(null)
+  const [submissionsLoading, setSubmissionsLoading] = useState(false)
+  const [submissionsQuery, setSubmissionsQuery] = useState('')
+  const [submissionsPage, setSubmissionsPage] = useState(1)
+  const [selectedSubmissionIds, setSelectedSubmissionIds] = useState<string[]>([])
+  const [viewingSubmission, setViewingSubmission] = useState<any | null>(null)
+  const responseCertRef = useRef<HTMLDivElement>(null)
 
   // Countdown Timer state for admin view
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
@@ -607,6 +627,139 @@ export default function EditCertificatePage() {
     loadData()
   }, [loadData])
 
+  const loadSubmissions = useCallback(async () => {
+    setSubmissionsLoading(true)
+    try {
+      const res = await fetch(`/api/certificates/${id}/submissions`)
+      const data = await res.json()
+      setSubmissions(data || [])
+    } catch {
+      showToast('فشل تحميل التقديمات والردود', 'error')
+    } finally {
+      setSubmissionsLoading(false)
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (viewMode === 'responses' && submissions === null) {
+      loadSubmissions()
+    }
+  }, [viewMode, submissions, loadSubmissions])
+
+  async function handleToggleIsOpen(currentStatus: boolean) {
+    try {
+      const res = await fetch(`/api/certificates/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_open: !currentStatus }),
+      })
+      if (!res.ok) throw new Error()
+      const updated = await res.json()
+      setCert((prev) => prev ? { ...prev, is_open: updated.is_open } : null)
+      showToast(updated.is_open ? 'تم فتح الاستمارة لاستقبال الردود ✓' : 'تم إغلاق الاستمارة ✓')
+    } catch {
+      showToast('فشل تعديل حالة الاستمارة', 'error')
+    }
+  }
+
+  function handleExportCsv() {
+    if (!submissions || submissions.length === 0) {
+      showToast('لا توجد ردود لتصديرها', 'error')
+      return
+    }
+
+    const headers = ['التاريخ', ...(formFields.map((f) => f.label))]
+    const rows = submissions.map((sub: any) => {
+      const date = new Date(sub.created_at).toLocaleDateString('ar-SA')
+      const fieldValues = formFields.map((f) => sub.data?.[f.variable] || '')
+      return [date, ...fieldValues]
+    })
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((val: any) => `"${String(val).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${templateName}_ردود.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    showToast('تم تصدير الردود بنجاح ✓')
+  }
+
+  function handleDownloadSelectedCsv() {
+    if (selectedSubmissionIds.length === 0 || !submissions) return
+
+    const selectedSubs = submissions.filter(s => selectedSubmissionIds.includes(s.id))
+    const headers = ['التاريخ', ...(formFields.map((f) => f.label))]
+    const rows = selectedSubs.map((sub: any) => {
+      const date = new Date(sub.created_at).toLocaleDateString('ar-SA')
+      const fieldValues = formFields.map((f) => sub.data?.[f.variable] || '')
+      return [date, ...fieldValues]
+    })
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((val: any) => `"${String(val).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${templateName}_محدد_ردود.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    showToast('تم تصدير الردود المحددة بنجاح ✓')
+  }
+
+  async function handleDownloadPdfForSubmission(response: any) {
+    if (!cert) return
+    showToast('جاري تحضير ملف الإجازة PDF...')
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const jsPDF = (await import('jspdf')).default
+
+      if (!responseCertRef.current) return
+
+      const canvas = await html2canvas(responseCertRef.current, {
+        scale: 2.2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+      })
+
+      const imgData = canvas.toDataURL('image/png')
+      
+      let isLandscape = true
+      if (cert.template_html && cert.template_html.startsWith('{')) {
+        try {
+          const config = JSON.parse(cert.template_html)
+          isLandscape = config.orientation === 'landscape'
+        } catch {}
+      }
+
+      const pdf = new jsPDF({
+        orientation: isLandscape ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      })
+
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+      
+      const studentName = response.data['اسم الطالب'] || Object.values(response.data)[0] || 'طالب'
+      pdf.save(`إجازة_${studentName}_${cert.title}.pdf`)
+      showToast('تم تحميل ملف PDF بنجاح ✓')
+    } catch (err) {
+      console.error(err)
+      showToast('فشل توليد PDF تلقائياً', 'error')
+    }
+  }
+
   const selected = elements.find((e) => e.id === selectedId) || null
 
   // Element Actions (for image overlays)
@@ -803,7 +956,7 @@ export default function EditCertificatePage() {
           />
         </div>
 
-        {/* أزرار التبديل بين الإجازة والاستمارة */}
+        {/* أزرار التبديل بين الشهادة، الاستمارة، والطلبات */}
         <div className="flex p-1 border bg-[#f7f2e7] gap-1" style={{ borderColor: 'var(--border-gold)', borderRadius: '30px' }}>
           <button
             type="button"
@@ -829,7 +982,7 @@ export default function EditCertificatePage() {
             }}
             onClick={() => setViewMode('builder')}
           >
-            الإجازة
+            الشهادة
           </button>
           <button
             type="button"
@@ -857,6 +1010,32 @@ export default function EditCertificatePage() {
           >
             الاستمارة
           </button>
+          <button
+            type="button"
+            className="text-xs font-bold transition-all"
+            style={{
+              borderRadius: '28px',
+              padding: '0.45rem 1.25rem',
+              cursor: 'pointer',
+              outline: 'none',
+              border: '1px solid transparent',
+              ...(viewMode === 'responses'
+                ? {
+                    background: '#fff',
+                    color: 'var(--navy-dark)',
+                    boxShadow: '0 2px 6px rgba(22, 36, 63, 0.08)',
+                    borderColor: 'var(--border-gold)'
+                  }
+                : {
+                    background: 'transparent',
+                    color: 'var(--text-muted)'
+                  }
+              )
+            }}
+            onClick={() => setViewMode('responses')}
+          >
+            الطلبات
+          </button>
         </div>
         
         {cert?.is_master && (
@@ -866,19 +1045,33 @@ export default function EditCertificatePage() {
           </div>
         )}
 
-        <button className="btn btn-secondary px-4 py-2 text-sm hidden sm:inline-flex items-center gap-1.5" onClick={() => window.open(publicLink, '_blank')}>
-          <Eye size={15} />
-          <span>معاينة الرابط</span>
-        </button>
-        
-        <button className="btn btn-gold px-4 py-2 text-sm inline-flex items-center gap-1.5" onClick={handleSave} disabled={saving}>
-          <Save size={15} />
-          <span>{saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}</span>
-        </button>
+        {viewMode === 'responses' ? (
+          <div className="flex gap-2">
+            <button
+              className="btn btn-secondary px-4 py-2 text-sm hidden sm:inline-flex items-center gap-1.5"
+              onClick={handleExportCsv}
+            >
+              <Download size={14} />
+              <span>تنزيل CSV</span>
+            </button>
+          </div>
+        ) : (
+          <>
+            <button className="btn btn-secondary px-4 py-2 text-sm hidden sm:inline-flex items-center gap-1.5" onClick={() => window.open(publicLink, '_blank')}>
+              <Eye size={15} />
+              <span>معاينة الرابط</span>
+            </button>
+            
+            <button className="btn btn-gold px-4 py-2 text-sm inline-flex items-center gap-1.5" onClick={handleSave} disabled={saving}>
+              <Save size={15} />
+              <span>{saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}</span>
+            </button>
+          </>
+        )}
       </header>
 
       {/* ===== محتوى الصفحة ===== */}
-      {viewMode === 'builder' ? (
+      {viewMode === 'builder' && (
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           
           {/* الشريط الجانبي الأيمن: إدارة العناصر والطبقات */}
@@ -1392,136 +1585,295 @@ export default function EditCertificatePage() {
           )}
         </aside>
       </div>
-      ) : (
-        <div className="flex-1 overflow-y-auto content-bg py-8">
-          <div className="form-editor-container">
-            {/* Card 1: Title and Description Header (Google Forms style) */}
-            <div className="form-editor-card header-card">
-              <div className="form-group text-right">
-                <input
-                  type="text"
-                  className="form-input font-bold"
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder="عنوان الاستمارة"
-                  style={{
-                    fontSize: '1.6rem',
-                    border: 'none',
-                    borderBottom: '1.5px solid transparent',
-                    borderRadius: 0,
-                    padding: '0.25rem 0',
-                    background: 'transparent',
-                    fontFamily: 'Amiri, serif',
-                    color: 'var(--navy-dark)',
-                    boxShadow: 'none'
-                  }}
-                  onFocus={(e) => { e.target.style.borderBottom = '1.5px solid var(--gold-main)' }}
-                  onBlur={(e) => { e.target.style.borderBottom = '1.5px solid transparent' }}
-                />
-              </div>
-              <div className="form-group text-right" style={{ marginTop: '-0.5rem' }}>
-                <textarea
-                  className="form-textarea"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="وصف الاستمارة والتعليمات للطلاب..."
-                  rows={2}
-                  style={{
-                    border: 'none',
-                    borderBottom: '1.5px solid transparent',
-                    borderRadius: 0,
-                    padding: '0.25rem 0',
-                    background: 'transparent',
-                    fontSize: '0.88rem',
-                    color: 'var(--text-muted)',
-                    boxShadow: 'none',
-                    resize: 'none'
-                  }}
-                  onFocus={(e) => { e.target.style.borderBottom = '1.5px solid var(--gold-main)' }}
-                  onBlur={(e) => { e.target.style.borderBottom = '1.5px solid transparent' }}
-                />
-              </div>
+      )}
 
-              {/* مؤقت العد التنازلي للمسؤول داخل ترويسة الاستمارة */}
-              {autoCloseEnabled && timeLeft !== null && timeLeft > 0 && (
-                <div className="countdown-banner rounded-xl p-3 flex flex-col items-center justify-center mt-3 text-right" style={{ background: 'var(--warning-bg)', border: '1px solid #ecdcae', alignSelf: 'center', width: '100%', maxWidth: '360px' }}>
-                  <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: '#7a5c1f' }}>
-                    <Clock size={13} />
-                    <span>ينتهي استقبال الردود تلقائياً خلال:</span>
-                  </div>
-                  <div className="flex gap-4 mt-2 direction-ltr font-mono text-base font-bold" style={{ color: '#7a5c1f' }}>
-                    <div className="text-center">
-                      <span className="text-sm">{String(Math.floor(timeLeft / 3600)).padStart(2, '0')}</span>
-                      <span className="block text-[8px] opacity-75">ساعة</span>
-                    </div>
-                    <span>:</span>
-                    <div className="text-center">
-                      <span className="text-sm">{String(Math.floor((timeLeft % 3600) / 60)).padStart(2, '0')}</span>
-                      <span className="block text-[8px] opacity-75">دقيقة</span>
-                    </div>
-                    <span>:</span>
-                    <div className="text-center">
-                      <span className="text-sm">{String(timeLeft % 60).padStart(2, '0')}</span>
-                      <span className="block text-[8px] opacity-75">ثانية</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+      {viewMode === 'form_editor' && (
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden text-right" style={{ background: '#f7f2e7' }}>
+          <style dangerouslySetInnerHTML={{ __html: `
+            .panel { background:#fffdf8; border-left:1px solid #e7ddc4; }
+            .panel-right { background:#fffdf8; border-right:1px solid #e7ddc4; }
+            .content-bg { background-color:#f7f2e7; background-image: radial-gradient(rgba(184,146,58,0.10) 1px, transparent 1.4px); background-size:20px 20px; }
 
-            {/* Cards 2+: Form Fields */}
-            {formFields.map((field, index) => {
-              const isCanvasField = !field.id.startsWith('extra-')
-              const isActive = activeFieldId === field.id
+            .layer-row { display:flex; align-items:center; gap:0.5rem; padding:0.55rem 0.6rem; border-radius:0.55rem; cursor:pointer; transition:background .12s ease; text-align:right; }
+            .layer-row:hover { background:#f3ecd8; }
+            .layer-row.active { background:#f3e6c0; box-shadow: inset 2px 0 0 #c9a227; }
 
-              return (
-                <div
-                  key={field.id}
-                  className={`form-editor-card ${isActive ? 'active' : ''}`}
-                  onClick={() => setActiveFieldId(field.id)}
-                >
-                  {/* Field Details */}
-                  <div className="form-editor-row">
-                    {/* Field Label / Question */}
-                    <div className="flex-1 text-right">
-                      <input
-                        type="text"
-                        className="form-input"
-                        value={field.label}
-                        onChange={(e) => {
-                          if (isCanvasField) {
-                            updateFormField(field.id, { label: e.target.value })
-                          } else {
-                            updateAdditionalFieldLabel(field.id, e.target.value)
-                          }
+            .tool-btn { display:flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.65rem; border-radius:0.7rem; border:1.5px dashed #c9a227; background:rgba(201,162,39,0.05); font-size:0.8rem; font-weight:700; color:#9c7a1f; width:100%; cursor:pointer; }
+            .tool-btn:hover { background:rgba(201,162,39,0.12); }
+
+            .field-select, .field-input { width:100%; font-size:0.82rem; padding:0.55rem 0.7rem; border-radius:0.5rem; border:1px solid #e0d6b8; background:#fffdf8; color:#1f2733; outline:none; text-align:right; }
+            .field-select:focus, .field-input:focus { border-color:#c9a227; }
+            .field-label { font-size:0.72rem; font-weight:700; color:#6b6457; margin-bottom:0.35rem; display:block; text-align:right; }
+
+            .preview-input { width:100%; font-size:0.92rem; padding:0.7rem 0.9rem; border-radius:0.6rem; border:1px solid #e0d6b8; background:#fffdf8; outline:none; color:#1f2733; text-align:right; }
+            .preview-input:focus { border-color:#c9a227; }
+
+            .form-editor-option-item { display:flex; align-items:center; gap:0.5rem; margin-top:0.35rem; }
+            .form-editor-option-dot { width:6px; height:6px; border-radius:9999px; background:#c9a227; }
+          ` }} />
+
+          {/* Right Panel (Fields List) */}
+          <aside className="panel-right order-2 lg:order-1 w-full lg:w-72 flex-shrink-0 p-4 flex flex-col gap-4 overflow-y-auto" style={{ borderRight: '1px solid #e7ddc4', background: '#fffdf8' }}>
+            <p className="field-label">حقول النموذج ({formFields.length})</p>
+            <div className="flex flex-col gap-0.5">
+              {formFields.map((f, index) => {
+                const isCanvasField = !f.id.startsWith('extra-')
+                const Icon = isCanvasField ? Sparkles : Plus
+                const isActive = activeFieldId === f.id
+                return (
+                  <div
+                    key={f.id}
+                    className={`layer-row ${isActive ? "active" : ""}`}
+                    onClick={() => setActiveFieldId(f.id)}
+                  >
+                    <GripVertical size={13} style={{ color: "#c2b896" }} />
+                    <Icon size={14} style={{ color: isCanvasField ? "var(--gold-main)" : "#6b6457" }} />
+                    <div className="flex-1 min-w-0 pr-1 text-right">
+                      <p className="text-xs truncate font-medium" style={{ color: "#1f2733" }}>
+                        {f.label}
+                      </p>
+                      {isCanvasField && (
+                        <p className="text-[9px] truncate" style={{ color: "#a39c8c" }}>
+                          حقل الشهادة الأساسي
+                        </p>
+                      )}
+                    </div>
+                    {f.required && (
+                      <span className="text-[10px] font-bold" style={{ color: "#9c3b3b" }}>
+                        *
+                      </span>
+                    )}
+                    
+                    {/* Move controls */}
+                    <div className="flex gap-1 mr-auto">
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        onClick={(e) => { e.stopPropagation(); moveField(index, 'up'); }}
+                        disabled={index === 0}
+                        style={{ padding: 0, width: '1.2rem', height: '1.2rem' }}
+                      >
+                        <ChevronUp size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        onClick={(e) => { e.stopPropagation(); moveField(index, 'down'); }}
+                        disabled={index === formFields.length - 1}
+                        style={{ padding: 0, width: '1.2rem', height: '1.2rem' }}
+                      >
+                        <ChevronDown size={12} />
+                      </button>
+                    </div>
+
+                    {!isCanvasField && (
+                      <button
+                        className="icon-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteAdditionalField(f.id);
                         }}
-                        placeholder="السؤال / اسم الحقل"
+                        style={{ padding: 0, width: '1.2rem', height: '1.2rem' }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <button className="tool-btn" onClick={addAdditionalField}>
+              <Plus size={15} />
+              <span>إضافة حقل إضافي</span>
+            </button>
+
+            <div className="rounded-xl p-3 flex gap-2 mt-1 text-right" style={{ background: "#faf1de", border: "1px solid #ecdcae" }}>
+              <Info size={14} style={{ color: "#b07a1f", flexShrink: 0, marginTop: 1 }} />
+              <p className="text-[11px] leading-relaxed" style={{ color: "#7a5c1f" }}>
+                الحقول المرتبطة بالشهادة لا يمكن حذفها من هنا (احذفها من تصميم الشهادة أولاً).
+              </p>
+            </div>
+          </aside>
+
+          {/* Center Workspace (Form Live Preview) */}
+          <div className="order-1 lg:order-2 flex-1 overflow-auto p-6 lg:p-10 flex items-start justify-center content-bg">
+            <div className="w-full" style={{ maxWidth: 560 }}>
+              <div className="card-formal p-7 lg:p-9 text-right" style={{ background: '#fffdf8', border: '1px solid #e7ddc4', borderRadius: '16px' }}>
+                <p className="text-xs font-semibold mb-1.5" style={{ color: "#b8923a" }}>
+                  معاينة الاستمارة للطلاب
+                </p>
+                <h2 className="font-amiri text-2xl font-bold mb-2" style={{ color: "#16243f" }}>
+                  {templateName}
+                </h2>
+                <p className="text-sm mb-7 leading-relaxed" style={{ color: "#6b6457" }}>
+                  {description || 'لا يوجد وصف للاستمارة.'}
+                </p>
+
+                <div className="flex flex-col gap-5">
+                  {formFields.map((f) => (
+                    <div key={f.id} className="text-right">
+                      <label className="text-sm font-semibold mb-1.5 block" style={{ color: "#1f2733" }}>
+                        {f.label}
+                        {f.required && (
+                          <span style={{ color: "#9c3b3b" }}> *</span>
+                        )}
+                      </label>
+                      {f.type === "textarea" ? (
+                        <textarea className="preview-input" rows={3} placeholder={f.placeholder || ""} disabled />
+                      ) : f.type === "select" ? (
+                        <select className="preview-input" disabled>
+                          <option>{f.placeholder || "اختر..."}</option>
+                          {(f.options || []).map((o, idx) => (
+                            <option key={idx}>{o}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input className="preview-input" type={f.type === "date" ? "date" : "text"} placeholder={f.placeholder || ""} disabled />
+                      )}
+                    </div>
+                  ))}
+                  {formFields.length === 0 && (
+                    <div className="text-center py-6 text-xs text-muted">
+                      لا توجد حقول في الاستمارة حالياً.
+                    </div>
+                  )}
+                </div>
+
+                <button className="btn btn-gold w-full py-3 rounded-full text-sm mt-8" disabled style={{ opacity: 0.7 }}>إرسال وإصدار الإجازة</button>
+              </div>
+              <p className="text-center text-xs mt-3" style={{ color: "#9c948a" }}>
+                هكذا ستظهر الاستمارة للطالب عند فتح الرابط
+              </p>
+            </div>
+          </div>
+
+          {/* Left Panel (Properties & Settings) */}
+          <aside className="panel order-3 w-full lg:w-80 flex-shrink-0 p-5 overflow-y-auto text-right" style={{ borderLeft: '1px solid #e7ddc4', background: '#fffdf8' }}>
+            {/* If no field is selected, show general form settings */}
+            {!activeFieldId || !formFields.some(f => f.id === activeFieldId) ? (
+              <div className="flex flex-col gap-6">
+                <div>
+                  <p className="font-amiri text-lg font-bold" style={{ color: "#16243f" }}>
+                    إعدادات الاستمارة
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: "#6b6457" }}>
+                    انقر على أي حقل في القائمة الجانبية لتعديل خصائصه
+                  </p>
+                </div>
+
+                <div>
+                  <span className="field-label">وصف / تعليمات الاستمارة</span>
+                  <textarea
+                    className="field-select"
+                    rows={4}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="اكتب تعليمات للطلاب تظهر أسفل عنوان الاستمارة..."
+                  />
+                </div>
+
+                <div className="border-t pt-5" style={{ borderColor: "#e7ddc4" }}>
+                  <span className="field-label flex items-center gap-1.5">
+                    <Clock size={13} />
+                    جدولة الإغلاق التلقائي
+                  </span>
+                  <div className="flex items-center justify-between mb-3 mt-2">
+                    <div>
+                      <p className="text-xs font-semibold" style={{ color: "#1f2733" }}>
+                        تمكين الإغلاق التلقائي
+                      </p>
+                      <p className="text-[10px]" style={{ color: "#a39c8c" }}>
+                        إيقاف الاستقبال تلقائيًا في وقت محدد
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAutoCloseEnabled(!autoCloseEnabled)}
+                      className="switch-track"
+                      style={{
+                        position: 'relative',
+                        width: '2.6rem',
+                        height: '1.45rem',
+                        borderRadius: '9999px',
+                        flexShrink: 0,
+                        transition: 'background .2s ease',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: autoCloseEnabled ? "#16243f" : "#e0d6b8"
+                      }}
+                    >
+                      <span
+                        className="switch-knob"
                         style={{
-                          fontWeight: 600,
-                          fontSize: '0.95rem',
-                          border: 'none',
-                          borderBottom: '1.5px solid var(--border-gold)',
-                          borderRadius: 0,
-                          background: 'transparent',
-                          padding: '0.5rem 0',
-                          boxShadow: 'none'
+                          position: 'absolute',
+                          top: '0.18rem',
+                          width: '1.1rem',
+                          height: '1.1rem',
+                          borderRadius: '9999px',
+                          background: '#fff',
+                          transition: 'left .2s ease',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                          left: autoCloseEnabled ? 'calc(100% - 1.3rem)' : '0.2rem'
                         }}
                       />
+                    </button>
+                  </div>
+                  {autoCloseEnabled && (
+                    <div
+                      className="field-select cursor-pointer flex justify-between items-center"
+                      onClick={() => setShowDatePicker(true)}
+                      style={{ background: '#fffdf8', border: '1px solid #e0d6b8', padding: '0.65rem' }}
+                    >
+                      <span>{autoCloseAt ? autoCloseAt.replace('T', ' ') : 'اختر التاريخ والوقت...'}</span>
+                      <Calendar size={14} />
                     </div>
+                  )}
+                </div>
+              </div>
+            ) : (() => {
+              const selectedField = formFields.find(f => f.id === activeFieldId)!
+              const isCanvasField = !selectedField.id.startsWith('extra-')
 
-                    {/* Field Type Selector */}
-                    <select
-                      className="form-select form-editor-type-select"
-                      value={field.type}
+              return (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: isCanvasField ? "#eef4ea" : "#f3e6c0", color: isCanvasField ? "#4f7d4a" : "#9c7a1f" }}>
+                      {isCanvasField ? <Sparkles size={11} /> : <Plus size={11} />}
+                      {isCanvasField ? "مرتبط بالشهادة" : "حقل إضافي للاستمارة"}
+                    </span>
+                    <button className="text-xs font-semibold" style={{ color: 'var(--gold-main)', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setActiveFieldId(null)}>
+                      رجوع للإعدادات
+                    </button>
+                  </div>
+
+                  <div>
+                    <span className="field-label">نص السؤال</span>
+                    <input
+                      className="field-select"
+                      value={selectedField.label}
                       onChange={(e) => {
-                        const newType = e.target.value as FormField['type']
+                        if (isCanvasField) {
+                          updateFormField(selectedField.id, { label: e.target.value })
+                        } else {
+                          updateAdditionalFieldLabel(selectedField.id, e.target.value)
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <span className="field-label">نوع الحقل</span>
+                    <select
+                      className="field-select"
+                      value={selectedField.type}
+                      onChange={(e) => {
+                        const newType = e.target.value as any
                         const patch: Partial<FormField> = { type: newType }
-                        if (newType === 'select' && !field.options) {
+                        if (newType === 'select') {
                           patch.options = ['الخيار الأول']
                         }
-                        updateFormField(field.id, patch)
+                        updateFormField(selectedField.id, patch)
                       }}
-                      style={{ fontSize: '0.82rem', padding: '0.45rem' }}
                     >
                       <option value="text">إجابة قصيرة (نص)</option>
                       <option value="textarea">إجابة طويلة (فقرة)</option>
@@ -1530,142 +1882,279 @@ export default function EditCertificatePage() {
                     </select>
                   </div>
 
-                  {/* Additional Options (select dropdown) */}
-                  {field.type === 'select' && (
-                    <div className="form-editor-options-list text-right">
-                      <p className="text-[11px] font-bold mb-2" style={{ color: 'var(--text-muted)' }}>خيارات القائمة المنسدلة:</p>
-                      {(field.options || ['الخيار الأول']).map((option, optIdx) => (
-                        <div key={optIdx} className="form-editor-option-item">
-                          <span className="form-editor-option-dot" />
-                          <input
-                            type="text"
-                            className="form-input flex-1 py-1 px-2.5 text-xs"
-                            value={option}
-                            onChange={(e) => updateOption(field.id, optIdx, e.target.value)}
-                            style={{ background: '#fff', border: '1px solid var(--border-gold)' }}
-                          />
-                          <button
-                            type="button"
-                            className="text-[#9c3b3b] hover:text-[#7a2e2e] text-xs font-bold px-1"
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              cursor: 'pointer',
-                              outline: 'none',
-                              boxShadow: 'none',
-                              padding: '0 0.5rem'
-                            }}
-                            onClick={() => removeOption(field.id, optIdx)}
-                          >
-                            حذف
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        className="text-xs font-bold mt-1 inline-flex items-center gap-1 hover:text-[#16243f]"
-                        style={{ color: 'var(--gold-main)', background: 'none', border: 'none', cursor: 'pointer', width: 'fit-content' }}
-                        onClick={() => addOption(field.id)}
-                      >
-                        <span>+ إضافة خيار جديد</span>
-                      </button>
+                  {selectedField.type === 'select' ? (
+                    <div className="border-t pt-4 mt-2" style={{ borderColor: '#e7ddc4' }}>
+                      <span className="field-label">خيارات القائمة المنسدلة</span>
+                      <div className="flex flex-col gap-2">
+                        {(selectedField.options || ['الخيار الأول']).map((option, optIdx) => (
+                          <div key={optIdx} className="form-editor-option-item">
+                            <span className="form-editor-option-dot" />
+                            <input
+                              type="text"
+                              className="field-input py-1 px-2 text-xs flex-1"
+                              value={option}
+                              onChange={(e) => updateOption(selectedField.id, optIdx, e.target.value)}
+                              style={{ background: '#fff', border: '1px solid var(--border-gold)' }}
+                            />
+                            <button
+                              type="button"
+                              className="text-[#9c3b3b] hover:text-[#7a2e2e] text-xs font-bold px-1"
+                              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+                              onClick={() => removeOption(selectedField.id, optIdx)}
+                            >
+                              حذف
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          className="text-xs font-bold mt-1 inline-flex items-center gap-1 hover:text-[#16243f]"
+                          style={{ color: 'var(--gold-main)', background: 'none', border: 'none', cursor: 'pointer', width: 'fit-content' }}
+                          onClick={() => addOption(selectedField.id)}
+                        >
+                          <span>+ إضافة خيار جديد</span>
+                        </button>
+                      </div>
                     </div>
-                  )}
-
-                  {/* Placeholder Config */}
-                  {field.type !== 'date' && (
-                    <div className="text-right">
+                  ) : (
+                    <div>
+                      <span className="field-label">نص توضيحي (Placeholder)</span>
                       <input
-                        type="text"
-                        className="form-input text-xs py-1.5 px-3"
-                        value={field.placeholder || ''}
-                        onChange={(e) => updateFormField(field.id, { placeholder: e.target.value })}
-                        placeholder="نص تلميح مساعدة داخل المربع (اختياري)..."
-                        style={{ background: '#faf9f6', borderStyle: 'dashed' }}
+                        className="field-select"
+                        value={selectedField.placeholder || ""}
+                        onChange={(e) => updateFormField(selectedField.id, { placeholder: e.target.value })}
+                        placeholder="مثال: اكتب هنا..."
                       />
                     </div>
                   )}
 
-                  {/* Card Actions Footer */}
-                  <div className="form-editor-actions">
-                    <div className="form-editor-action-group">
-                      <button
-                        type="button"
-                        className="form-editor-order-btn"
-                        onClick={(e) => { e.stopPropagation(); moveField(index, 'up'); }}
-                        disabled={index === 0}
-                        title="تحريك لأعلى"
-                      >
-                        <ChevronUp size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        className="form-editor-order-btn"
-                        onClick={(e) => { e.stopPropagation(); moveField(index, 'down'); }}
-                        disabled={index === formFields.length - 1}
-                        title="تحريك لأسفل"
-                      >
-                        <ChevronDown size={16} />
-                      </button>
-
-                      <span className={`form-editor-field-badge ${!isCanvasField ? 'additional' : ''}`}>
-                        {isCanvasField ? 'حقل الشهادة الأساسي' : 'حقل إضافي للاستمارة'}
-                      </span>
-                    </div>
-
-                    <div className="form-editor-action-group">
-                      <div className="flex items-center gap-1.5 ml-4">
-                        <input
-                          type="checkbox"
-                          id={`req-${field.id}`}
-                          checked={field.required}
-                          onChange={(e) => updateFormField(field.id, { required: e.target.checked })}
-                          style={{ cursor: 'pointer' }}
-                        />
-                        <label htmlFor={`req-${field.id}`} style={{ fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}>
-                          مطلوب إدخاله
-                        </label>
-                      </div>
-
-                      {!isCanvasField && (
-                        <button
-                          type="button"
-                          className="text-[#9c3b3b] hover:text-[#7a2e2e] flex items-center gap-1 text-xs font-bold pr-3 border-r"
-                          style={{
-                            borderColor: 'var(--border-gold)',
-                            background: 'transparent',
-                            borderTop: 'none',
-                            borderBottom: 'none',
-                            borderLeft: 'none',
-                            padding: '0 0.75rem 0 0',
-                            cursor: 'pointer',
-                            outline: 'none',
-                            boxShadow: 'none',
-                          }}
-                          onClick={() => deleteAdditionalField(field.id)}
-                        >
-                          <Trash2 size={13} />
-                          <span>حذف الحقل</span>
-                        </button>
-                      )}
-                    </div>
+                  <div className="flex items-center justify-between border-t pt-4 mt-2" style={{ borderColor: '#e7ddc4' }}>
+                    <p className="text-sm font-semibold" style={{ color: "#1f2733" }}>
+                      حقل إجباري (مطلوب)
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => updateFormField(selectedField.id, { required: !selectedField.required })}
+                      className="switch-track"
+                      style={{
+                        position: 'relative',
+                        width: '2.6rem',
+                        height: '1.45rem',
+                        borderRadius: '9999px',
+                        flexShrink: 0,
+                        transition: 'background .2s ease',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: selectedField.required ? "#16243f" : "#e0d6b8"
+                      }}
+                    >
+                      <span
+                        className="switch-knob"
+                        style={{
+                          position: 'absolute',
+                          top: '0.18rem',
+                          width: '1.1rem',
+                          height: '1.1rem',
+                          borderRadius: '9999px',
+                          background: '#fff',
+                          transition: 'left .2s ease',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                          left: selectedField.required ? 'calc(100% - 1.3rem)' : '0.2rem'
+                        }}
+                      />
+                    </button>
                   </div>
+
+                  {!isCanvasField && (
+                    <button
+                      className="text-xs font-semibold inline-flex items-center gap-1.5 mt-4 text-[#9c3b3b] hover:text-[#7a2e2e]"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                      onClick={() => deleteAdditionalField(selectedField.id)}
+                    >
+                      <Trash2 size={13} />
+                      <span>حذف هذا الحقل بالكامل</span>
+                    </button>
+                  )}
                 </div>
               )
-            })}
+            })()}
+          </aside>
+        </div>
+      )}
 
-            {/* Add Additional Field */}
-            <div className="form-editor-add-btn-container">
-              <button
-                type="button"
-                className="btn btn-secondary py-2.5 px-6 text-sm flex items-center gap-1.5 shadow-sm"
-                onClick={addAdditionalField}
-                style={{ background: '#fff', border: '1px solid var(--border-gold)' }}
-              >
-                <Plus size={16} />
-                <span>إضافة حقل إضافي للاستمارة</span>
-              </button>
+      {viewMode === 'responses' && (
+        <div className="flex-1 overflow-y-auto content-bg py-6 px-4 lg:px-8 text-right" style={{ background: '#f7f2e7' }}>
+          <style dangerouslySetInnerHTML={{ __html: `
+            .resp-table { width:100%; border-collapse:separate; border-spacing:0; }
+            .resp-table th { text-align:right; font-size:0.74rem; font-weight:700; color:#6b6457; padding:0 0.9rem 0.7rem; white-space:nowrap; }
+            .resp-table td { padding:0.8rem 0.9rem; border-top:1px solid #efe9da; font-size:0.85rem; vertical-align:middle; }
+            .resp-table tr:hover td { background:#faf7ee; }
+          ` }} />
+          <div className="card-formal p-5" style={{ background: '#fffdf8', border: '1px solid #e7ddc4', borderRadius: '14px' }}>
+            {/* Control Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-full border flex-1 sm:max-w-xs" style={{ borderColor: "#e0d6b8", background: "#fffdf8" }}>
+                <Search size={15} className="opacity-50" />
+                <input
+                  value={submissionsQuery}
+                  onChange={(e) => {
+                    setSubmissionsQuery(e.target.value)
+                    setSubmissionsPage(1)
+                  }}
+                  placeholder="ابحث باسم الطالب..."
+                  className="bg-transparent outline-none text-sm flex-1 placeholder:opacity-60 text-right"
+                  style={{ border: 'none' }}
+                />
+              </div>
+              <div className="flex items-center gap-5">
+                <p className="text-sm" style={{ color: "#6b6457" }}>
+                  إجمالي الردود: <span className="font-bold" style={{ color: "#16243f" }}>{submissions ? submissions.length : 0}</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold" style={{ color: "#1f2733" }}>
+                    استقبال الردود
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleIsOpen(cert?.is_open ?? false)}
+                    className="switch-track"
+                    style={{
+                      position: 'relative',
+                      width: '2.6rem',
+                      height: '1.45rem',
+                      borderRadius: '9999px',
+                      flexShrink: 0,
+                      transition: 'background .2s ease',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: cert?.is_open ? "#16243f" : "#e0d6b8"
+                    }}
+                  >
+                    <span
+                      className="switch-knob"
+                      style={{
+                        position: 'absolute',
+                        top: '0.18rem',
+                        width: '1.1rem',
+                        height: '1.1rem',
+                        borderRadius: '9999px',
+                        background: '#fff',
+                        transition: 'left .2s ease',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                        left: cert?.is_open ? 'calc(100% - 1.3rem)' : '0.2rem'
+                      }}
+                    />
+                  </button>
+                </div>
+              </div>
             </div>
+
+            {/* Bulk Action Bar */}
+            {selectedSubmissionIds.length > 0 && (
+              <div className="flex items-center justify-between gap-3 mb-4 px-4 py-2.5 rounded-xl" style={{ background: "#f3e6c0" }}>
+                <p className="text-sm font-semibold" style={{ color: "#16243f" }}>
+                  {selectedSubmissionIds.length} محدد
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="btn btn-secondary px-3.5 py-1.5 rounded-full text-xs flex items-center gap-1.5"
+                    style={{ background: "#fffdf8" }}
+                    onClick={handleDownloadSelectedCsv}
+                  >
+                    <Download size={13} />
+                    تنزيل المحدد
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Table */}
+            {submissionsLoading ? (
+              <div className="text-center py-10 text-xs text-muted">جاري تحميل الردود...</div>
+            ) : !submissions || submissions.length === 0 ? (
+              <div className="text-center py-10 text-xs text-muted">لا توجد ردود مستلمة بعد.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="resp-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'right', fontSize: '0.74rem', fontWeight: 700, color: '#6b6457', padding: '0 0.9rem 0.7rem' }}>
+                        <input
+                          type="checkbox"
+                          checked={submissions && submissions.length > 0 && selectedSubmissionIds.length === submissions.length}
+                          onChange={(e) => {
+                            if (e.target.checked && submissions) {
+                              setSelectedSubmissionIds(submissions.map(s => s.id))
+                            } else {
+                              setSelectedSubmissionIds([])
+                            }
+                          }}
+                          style={{ accentColor: "#16243f" }}
+                        />
+                      </th>
+                      <th style={{ textAlign: 'right', fontSize: '0.74rem', fontWeight: 700, color: '#6b6457', padding: '0 0.9rem 0.7rem' }}>#</th>
+                      <th style={{ textAlign: 'right', fontSize: '0.74rem', fontWeight: 700, color: '#6b6457', padding: '0 0.9rem 0.7rem' }}>تاريخ الإرسال</th>
+                      {formFields.map((f) => (
+                        <th key={f.id} style={{ textAlign: 'right', fontSize: '0.74rem', fontWeight: 700, color: '#6b6457', padding: '0 0.9rem 0.7rem' }}>{f.label}</th>
+                      ))}
+                      <th style={{ textAlign: 'right', fontSize: '0.74rem', fontWeight: 700, color: '#6b6457', padding: '0 0.9rem 0.7rem' }}>الإجازة</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submissions
+                      .filter((r) => {
+                        const studentName = r.data['اسم الطالب'] || Object.values(r.data)[0] || '';
+                        return String(studentName).includes(submissionsQuery.trim());
+                      })
+                      .map((sub: any, idx: number) => {
+                        return (
+                          <tr key={sub.id} className="hover:bg-[#faf7ee]">
+                            <td style={{ padding: '0.8rem 0.9rem', borderTop: '1px solid #efe9da', verticalAlign: 'middle' }}>
+                              <input
+                                type="checkbox"
+                                checked={selectedSubmissionIds.includes(sub.id)}
+                                onChange={() => {
+                                  setSelectedSubmissionIds(prev =>
+                                    prev.includes(sub.id) ? prev.filter(x => x !== sub.id) : [...prev, sub.id]
+                                  )
+                                }}
+                                style={{ accentColor: "#16243f" }}
+                              />
+                            </td>
+                            <td style={{ padding: '0.8rem 0.9rem', borderTop: '1px solid #efe9da', verticalAlign: 'middle', color: '#6b6457' }}>{idx + 1}</td>
+                            <td style={{ padding: '0.8rem 0.9rem', borderTop: '1px solid #efe9da', verticalAlign: 'middle', color: '#6b6457' }}>
+                              {new Date(sub.created_at).toLocaleDateString('ar-SA')} {new Date(sub.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            {formFields.map((f) => (
+                              <td key={f.id} style={{ padding: '0.8rem 0.9rem', borderTop: '1px solid #efe9da', verticalAlign: 'middle', fontWeight: 500, color: '#1f2733' }}>
+                                {sub.data?.[f.variable] || '—'}
+                              </td>
+                            ))}
+                            <td style={{ padding: '0.8rem 0.9rem', borderTop: '1px solid #efe9da', verticalAlign: 'middle' }}>
+                              <button
+                                className="flex items-center gap-2"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', outline: 'none' }}
+                                onClick={() => setViewingSubmission(sub)}
+                              >
+                                <svg viewBox="0 0 60 40" className="w-12 h-8 flex-shrink-0">
+                                  <rect x="1" y="1" width="58" height="38" rx="2" fill="#fffdf8" stroke="#c9a227" strokeWidth="1.2" />
+                                  <rect x="14" y="9" width="32" height="2.2" rx="1" fill="#16243f" opacity="0.7" />
+                                  <rect x="10" y="16" width="40" height="1.4" rx="0.7" fill="#16243f" opacity="0.25" />
+                                  <rect x="16" y="21" width="28" height="1.4" rx="0.7" fill="#16243f" opacity="0.25" />
+                                  <circle cx="16" cy="31" r="5" fill="#f3e6c0" stroke="#b8923a" strokeWidth="1" />
+                                </svg>
+                                <span className="text-xs font-semibold" style={{ color: "#b8923a" }}>
+                                  عرض
+                                </span>
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1678,6 +2167,15 @@ export default function EditCertificatePage() {
         onChange={setAutoCloseAt}
       />
 
+      {/* Dynamic Certificate Preview Modal for Submissions */}
+      <CertificateModal
+        response={viewingSubmission}
+        onClose={() => setViewingSubmission(null)}
+        cert={cert}
+        responseCertRef={responseCertRef}
+        onDownloadPdf={() => handleDownloadPdfForSubmission(viewingSubmission)}
+      />
+
       {/* Toast Notification */}
       {toast && (
         <div className={`toast toast-${toast.type}`} role="status">
@@ -1687,3 +2185,140 @@ export default function EditCertificatePage() {
     </div>
   )
 }
+
+// CertificateModal helper component definition
+interface CertificateModalProps {
+  response: any
+  onClose: () => void
+  cert: Certificate | null
+  responseCertRef: React.RefObject<HTMLDivElement | null>
+  onDownloadPdf: () => void
+}
+
+function replacePlaceholders(html: string, formData: Record<string, string>): string {
+  let replaced = html
+  Object.entries(formData || {}).forEach(([key, value]) => {
+    const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g')
+    replaced = replaced.replace(regex, value)
+  })
+  return replaced
+}
+
+function CertificateModal({ response, onClose, cert, responseCertRef, onDownloadPdf }: CertificateModalProps) {
+  if (!response || !cert) return null
+
+  let isJsonTemplate = false
+  let builderConfig: any = null
+  try {
+    if (cert.template_html && cert.template_html.startsWith('{')) {
+      builderConfig = JSON.parse(cert.template_html)
+      isJsonTemplate = true
+    }
+  } catch {}
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .modal-overlay { position:fixed; inset:0; background:rgba(15,26,48,0.55); display:flex; align-items:center; justify-content:center; z-index:100; padding:1rem; }
+        .modal-card { background:#fffdf8; border-radius:18px; width:100%; box-shadow:0 24px 60px -20px rgba(15,26,48,0.5); border:1px solid #e7ddc4; }
+        .certificate-a4 { box-shadow: 0 10px 30px rgba(22, 36, 63, 0.15); border-radius: 4px; overflow: hidden; background: #fffdf8; }
+        .btn-gold { background:linear-gradient(180deg,#d9b94a,#b8923a); color:#16243f; font-weight:800; border:none; cursor:pointer; }
+        .btn-outline { border:1.5px solid #d6cdb0; color:#4a4538; background:transparent; font-weight:600; cursor:pointer; }
+      ` }} />
+      <div className="modal-card" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 pt-6 pb-2 text-right">
+          <h3 className="font-amiri text-xl font-bold" style={{ color: "#16243f" }}>
+            معاينة الإجازة للطلب
+          </h3>
+          <button className="icon-btn" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="px-6 pb-2 flex justify-center overflow-auto">
+          {isJsonTemplate && builderConfig ? (
+            <div
+              ref={responseCertRef}
+              className="certificate-a4 relative flex-shrink-0"
+              style={{
+                background: builderConfig.bg || '#fffdf8',
+                aspectRatio: builderConfig.orientation === 'landscape' ? '1.414 / 1' : '1 / 1.414',
+                width: builderConfig.orientation === 'landscape' ? '480px' : '340px',
+                height: builderConfig.orientation === 'landscape' ? '340px' : '480px',
+                border: '1px solid var(--border-gold)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+            >
+              {/* Border Image */}
+              <img
+                src="/border.png"
+                alt="Certificate Border"
+                className="absolute pointer-events-none select-none"
+                style={{
+                  width: builderConfig.orientation === 'landscape' ? '70.72%' : '100%',
+                  height: builderConfig.orientation === 'landscape' ? '141.42%' : '100%',
+                  top: builderConfig.orientation === 'landscape' ? '50%' : '0',
+                  left: builderConfig.orientation === 'landscape' ? '50%' : '0',
+                  transform: builderConfig.orientation === 'landscape' ? 'translate(-50%, -50%) rotate(90deg)' : 'none',
+                  objectFit: 'fill',
+                }}
+              />
+
+              {/* Central flow document container */}
+              <div
+                className="absolute flex flex-col justify-center gap-1 text-right pointer-events-none"
+                style={{
+                  left: '8%',
+                  right: '8%',
+                  top: '8%',
+                  bottom: '8%',
+                  direction: 'rtl',
+                  zIndex: 2,
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: replacePlaceholders(builderConfig.html || '', response.data)
+                }}
+              />
+
+              {/* Absolute Stamps and Signatures */}
+              {builderConfig.elements.filter((el: any) => el.type === 'image' && !el.hidden).map((el: any) => {
+                return (
+                  <div
+                    key={el.id}
+                    className="absolute flex items-center justify-center overflow-hidden pointer-events-none"
+                    style={{
+                      left: `${el.x}%`,
+                      top: `${el.y}%`,
+                      width: `${el.w}%`,
+                      height: `${el.h}%`,
+                      transform: 'translate(-50%, -50%)',
+                      zIndex: 10,
+                    }}
+                  >
+                    {el.url && <img src={el.url} alt={el.label} className="w-full h-full object-contain pointer-events-none" />}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="p-10 text-center text-xs text-muted">
+              هذه الإجازة تستخدم قالباً قديماً غير مدعوم للمعاينة المباشرة هنا.
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 px-6 pb-6 pt-4">
+          <button className="btn-outline flex-1 py-2.5 rounded-full text-sm" onClick={onClose}>
+            إغلاق
+          </button>
+          <button className="btn-gold flex-1 py-2.5 rounded-full text-sm flex items-center justify-center gap-1.5" onClick={onDownloadPdf}>
+            <Download size={14} />
+            تنزيل PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
