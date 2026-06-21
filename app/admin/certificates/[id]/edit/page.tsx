@@ -191,19 +191,43 @@ function CertificateModal({ response, onClose, cert, responseCertRef, onDownload
         <div className="px-6 py-2 flex justify-center bg-[#ece6d4]" style={{ overflow: 'auto', maxHeight: '60vh' }}>
           <div
             ref={responseCertRef}
-            className="font-amiri"
+            className="font-amiri relative overflow-hidden flex-shrink-0"
             style={{
               background: bg,
               width: orientation === 'landscape' ? '880px' : '620px',
               minHeight: orientation === 'landscape' ? '540px' : '760px',
               border: '2px solid #c9a227',
               borderRadius: '4px',
-              padding: '62px 68px',
               boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-              position: 'relative',
             }}
-            dangerouslySetInnerHTML={{ __html: replacedHtml }}
-          />
+          >
+            {/* Border Image */}
+            <img
+              src="/border.png"
+              alt="Certificate Border"
+              className="absolute pointer-events-none select-none"
+              style={{
+                width: orientation === 'landscape' ? '70.72%' : '100%',
+                height: orientation === 'landscape' ? '141.42%' : '100%',
+                top: orientation === 'landscape' ? '50%' : '0',
+                left: orientation === 'landscape' ? '50%' : '0',
+                transform: orientation === 'landscape' ? 'translate(-50%, -50%) rotate(90deg)' : 'none',
+                objectFit: 'fill',
+                zIndex: 1,
+              }}
+            />
+
+            {/* Content Layer */}
+            <div
+              className="absolute inset-0 text-right pointer-events-none"
+              style={{
+                padding: '62px 68px',
+                zIndex: 2,
+                direction: 'rtl',
+              }}
+              dangerouslySetInnerHTML={{ __html: replacedHtml }}
+            />
+          </div>
         </div>
         
         <div className="flex items-center gap-3 px-6 pb-6 pt-4">
@@ -904,8 +928,9 @@ export default function CertificateBuilderPage() {
         .toolbar-dropdown-btn:hover { background:rgba(201,162,39,0.16); }
 
         .doc-scroll { flex:1; overflow:auto; padding:2.5rem 1.5rem; display:flex; justify-content:center; background-color:#ece6d4; background-image: radial-gradient(rgba(184,146,58,0.14) 1px, transparent 1.4px); background-size:20px 20px; }
-        .doc-page { width:100%; border:2px solid #c9a227; border-radius:4px; padding:62px 68px; outline:none; box-shadow:0 14px 40px -12px rgba(22,36,63,0.28); }
-        .doc-page:focus { box-shadow:0 0 0 3px rgba(201,162,39,0.25), 0 14px 40px -12px rgba(22,36,63,0.28); }
+        .doc-page-container { position:relative; overflow:hidden; flex-shrink:0; box-shadow:0 14px 40px -12px rgba(22,36,63,0.28); border:2px solid #c9a227; border-radius:4px; transition:box-shadow 0.15s ease; }
+        .doc-page-container:focus-within { box-shadow:0 0 0 3px rgba(201,162,39,0.25), 0 14px 40px -12px rgba(22,36,63,0.28); }
+        .doc-page { width:100%; height:100%; border:none; padding:62px 68px; outline:none; background:transparent; }
 
         .field-chip, .image-chip { display:inline-block; font-family:'Tajawal',sans-serif; font-size:0.85em; padding:1px 9px; margin:0 2px; border:1.5px dashed #c9a227; border-radius:4px; background:rgba(201,162,39,0.08); color:#9c7a1f; font-weight:600; }
         .image-chip { border-color:#b8923a; }
@@ -1208,15 +1233,44 @@ export default function CertificateBuilderPage() {
 
           <div className="doc-scroll">
             <div
-              ref={pageRef}
-              contentEditable
-              suppressContentEditableWarning
-              dir="rtl"
-              onMouseUp={saveSelection}
-              onKeyUp={saveSelection}
-              className="doc-page font-amiri"
-              style={{ background: pageBg, maxWidth: orientation === 'landscape' ? 880 : 620, minHeight: orientation === 'landscape' ? 540 : 760 }}
-            />
+              className="doc-page-container"
+              style={{
+                width: orientation === 'landscape' ? '880px' : '620px',
+                height: orientation === 'landscape' ? '540px' : '760px',
+                background: pageBg,
+              }}
+            >
+              {/* Border Image */}
+              <img
+                src="/border.png"
+                alt="Certificate Border"
+                className="absolute pointer-events-none select-none"
+                style={{
+                  width: orientation === 'landscape' ? '70.72%' : '100%',
+                  height: orientation === 'landscape' ? '141.42%' : '100%',
+                  top: orientation === 'landscape' ? '50%' : '0',
+                  left: orientation === 'landscape' ? '50%' : '0',
+                  transform: orientation === 'landscape' ? 'translate(-50%, -50%) rotate(90deg)' : 'none',
+                  objectFit: 'fill',
+                  zIndex: 1,
+                }}
+              />
+              <div
+                ref={pageRef}
+                contentEditable
+                suppressContentEditableWarning
+                dir="rtl"
+                onMouseUp={saveSelection}
+                onKeyUp={saveSelection}
+                className="doc-page font-amiri"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  zIndex: 2,
+                  position: 'relative',
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
