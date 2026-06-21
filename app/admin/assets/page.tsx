@@ -152,7 +152,12 @@ export default function AssetsPage() {
               style={{ border: '2px dashed var(--border-gold)', background: 'var(--bg-cream)' }}
             >
               {preview ? (
-                <img src={preview} alt="معاينة" className="dropzone-preview max-h-28 object-contain" />
+                <img
+                  src={preview}
+                  alt="معاينة"
+                  className="dropzone-preview pointer-events-none"
+                  style={{ maxHeight: '112px', maxWidth: '100%', objectFit: 'contain' }}
+                />
               ) : (
                 <div className="flex flex-col items-center gap-1.5 py-4">
                   <Upload size={32} style={{ color: 'var(--gold-main)' }} />
@@ -314,8 +319,18 @@ function AssetCard({ asset, onDelete }: { asset: Asset; onDelete: (id: string, n
 
   return (
     <div className="asset-card card-formal overflow-hidden flex flex-col">
-      <div className="flex-1 bg-white p-3 flex items-center justify-center h-28 border-b" style={{ borderColor: 'var(--border-gold)' }}>
-        <img src={asset.public_url} alt={asset.name} className="max-h-full max-w-full object-contain pointer-events-none" />
+      <div
+        className="flex items-center justify-center border-b stamp-card-container"
+        style={{ borderColor: 'var(--border-gold)', height: '112px', background: 'var(--bg-cream)', padding: '12px', cursor: 'pointer' }}
+        onClick={copyUrl}
+        title="اضغط لنسخ الرابط المباشر للصورة"
+      >
+        <img
+          src={asset.public_url}
+          alt={asset.name}
+          className="pointer-events-none stamp-image-zoom"
+          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+        />
       </div>
       <div className="p-3 flex items-center justify-between gap-1">
         <span className="text-xs font-semibold truncate flex-1 leading-none text-right" style={{ color: 'var(--text-main)' }} title={asset.name}>

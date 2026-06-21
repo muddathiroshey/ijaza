@@ -1414,4 +1414,24 @@ body {
   margin-bottom: 2rem;
 }
 
+/* Stamp Hover Effects & Scaling */
+.stamp-card-container {
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.stamp-card-container:hover {
+  transform: translateY(-2px) !important;
+  border-color: var(--gold-focus) !important;
+  box-shadow: 0 6px 16px rgba(229, 198, 126, 0.2) !important;
+}
+
+.stamp-image-zoom {
+  transition: transform 0.25s ease !important;
+}
+
+.stamp-card-container:hover .stamp-image-zoom {
+  transform: scale(1.06) !important;
+}
+
+
 

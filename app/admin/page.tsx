@@ -626,10 +626,15 @@ export default function AdminDashboard() {
                 {stamps.slice(0, 5).map((s, i) => (
                   <div key={s.id || i} className="flex flex-col items-center gap-1.5">
                     <div
-                      className="w-full aspect-square rounded-xl flex items-center justify-center overflow-hidden"
-                      style={{ background: '#f7f2e7', border: '1px solid #e7ddc4' }}
+                      className="w-full aspect-square rounded-xl flex items-center justify-center overflow-hidden stamp-card-container"
+                      style={{ background: '#f7f2e7', border: '1px solid #e7ddc4', padding: '8px', cursor: 'pointer' }}
                     >
-                      <img src={s.public_url} alt={s.name} className="w-[80%] h-[80%] object-contain" />
+                      <img
+                        src={s.public_url}
+                        alt={s.name}
+                        className="pointer-events-none stamp-image-zoom"
+                        style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }}
+                      />
                     </div>
                     <p className="text-[9px] text-center leading-tight truncate w-full" style={{ color: 'var(--text-muted)' }} title={s.name}>
                       {s.name}
