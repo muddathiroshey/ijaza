@@ -228,7 +228,7 @@ const EditableDocument = forwardRef<EditableDocumentRef, EditableDocumentProps>(
       onKeyUp={handleSelectionChange}
       onFocus={handleSelectionChange}
       dir="rtl"
-      className="w-full bg-transparent border-none outline-none resize-none overflow-hidden p-3 rounded-lg min-h-[300px]"
+      className="w-full h-full bg-transparent border-none outline-none resize-none overflow-hidden p-3"
       style={{
         direction: 'rtl',
         display: 'flex',
@@ -236,6 +236,10 @@ const EditableDocument = forwardRef<EditableDocumentRef, EditableDocumentProps>(
         justifyContent: 'center',
         gap: '0.4rem',
         fontFamily: "'Tajawal', sans-serif",
+        border: 'none',
+        outline: 'none',
+        boxShadow: 'none',
+        background: 'transparent',
       }}
     />
   )
@@ -313,6 +317,7 @@ export default function EditCertificatePage() {
   const [editorHtml, setEditorHtml] = useState('')
   const [activeStyle, setActiveStyle] = useState<ParagraphStyle | null>(null)
   const documentRef = useRef<EditableDocumentRef>(null)
+  const [inlineUploading, setInlineUploading] = useState(false)
 
   // Auto Close Settings
   const [autoCloseEnabled, setAutoCloseEnabled] = useState(false)
@@ -614,6 +619,49 @@ export default function EditCertificatePage() {
     if (selectedId === elId) setSelectedId(null)
   }
 
+  async function handleInlineUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !selectedId) return
+    setInlineUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', 'signature')
+
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      const uploadData = await uploadRes.json()
+      if (!uploadRes.ok) throw new Error(uploadData.error)
+
+      const assetName = file.name.replace(/\.[^.]+$/, '')
+      const metaRes = await fetch('/api/assets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: assetName,
+          type: 'signature',
+          storage_path: uploadData.storage_path,
+          public_url: uploadData.public_url,
+        }),
+      })
+      const metaData = await metaRes.json()
+      if (!metaRes.ok) throw new Error(metaData.error)
+
+      // Add to assets list
+      setAssets((prev) => [metaData, ...prev])
+      
+      // Update element
+      updateElement(selectedId, { url: metaData.public_url, label: assetName })
+      showToast('تم رفع الصورة وتحديث العنصر بنجاح ✓')
+    } catch {
+      showToast('فشل رفع الصورة', 'error')
+    } finally {
+      setInlineUploading(false)
+    }
+  }
+
   function addElement(type: 'static' | 'field' | 'image') {
     if (type === 'static') {
       documentRef.current?.appendParagraph()
@@ -848,7 +896,7 @@ export default function EditCertificatePage() {
               </button>
               <button className="tool-btn" onClick={() => addElement('image')}>
                 <ImageIcon size={16} />
-                <span>توقيع/ختم</span>
+                <span>إضافة صورة</span>
               </button>
             </div>
           </div>
@@ -927,10 +975,10 @@ export default function EditCertificatePage() {
               <div
                 className="absolute flex flex-col justify-center gap-2 text-right"
                 style={{
-                  left: '12%',
-                  right: '12%',
-                  top: '12%',
-                  bottom: '12%',
+                  left: '8%',
+                  right: '8%',
+                  top: '8%',
+                  bottom: '8%',
                   direction: 'rtl',
                   zIndex: 2,
                 }}
@@ -1284,9 +1332,24 @@ export default function EditCertificatePage() {
                     ))}
                   </div>
                 )}
-                <Link href="/admin/assets" className="text-[10px] font-bold block mt-2 text-left" style={{ color: 'var(--gold-main)' }}>
-                  رفع صورة جديدة ↗
-                </Link>
+                <div className="flex items-center justify-between mt-2.5">
+                  <Link href="/admin/assets" className="text-[10px] font-bold" style={{ color: 'var(--gold-main)' }}>
+                    مكتبة الصور ↗
+                  </Link>
+                  <label
+                    className="text-[10px] font-bold cursor-pointer"
+                    style={{ color: 'var(--gold-main)' }}
+                  >
+                    {inlineUploading ? 'جاري الرفع...' : 'رفع صورة مباشرة ↑'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleInlineUpload}
+                      disabled={inlineUploading}
+                    />
+                  </label>
+                </div>
               </div>
 
               <div>

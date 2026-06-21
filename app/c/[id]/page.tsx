@@ -355,10 +355,10 @@ export default function StudentCertificatePage() {
               <div
                 className="absolute flex flex-col justify-center gap-2 text-right pointer-events-none"
                 style={{
-                  left: '12%',
-                  right: '12%',
-                  top: '12%',
-                  bottom: '12%',
+                  left: '8%',
+                  right: '8%',
+                  top: '8%',
+                  bottom: '8%',
                   direction: 'rtl',
                   zIndex: 2,
                 }}
