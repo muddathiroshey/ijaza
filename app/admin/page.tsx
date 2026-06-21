@@ -231,6 +231,18 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   
+  // Team Management States
+  const [teamMembers, setTeamMembers] = useState([
+    { id: '1', name: 'محمد العتيبي', role: 'مشرف' },
+    { id: '2', name: 'ليان السبيعي', role: 'عضو' },
+    { id: '3', name: 'خالد منصور', role: 'عضو' },
+    { id: '4', name: 'هدى الشمري', role: 'عضو' },
+  ])
+  const [showAddMember, setShowAddMember] = useState(false)
+  const [showManageMembers, setShowManageMembers] = useState(false)
+  const [newMemberName, setNewMemberName] = useState('')
+  const [newMemberRole, setNewMemberRole] = useState<'مشرف' | 'عضو'>('عضو')
+
   // Creation States
   const [showCreate, setShowCreate] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -389,6 +401,26 @@ export default function AdminDashboard() {
     } finally {
       setCreating(false)
     }
+  }
+
+  function handleAddMember(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newMemberName.trim()) return
+    const newMember = {
+      id: String(Date.now()),
+      name: newMemberName.trim(),
+      role: newMemberRole,
+    }
+    setTeamMembers((prev) => [...prev, newMember])
+    setNewMemberName('')
+    setNewMemberRole('عضو')
+    setShowAddMember(false)
+    showToast('تم إضافة عضو جديد للفريق ✓')
+  }
+
+  function handleRemoveMember(id: string) {
+    setTeamMembers((prev) => prev.filter((m) => m.id !== id))
+    showToast('تم إزالة العضو من الفريق ✓')
   }
 
   // Stats Calculations
@@ -618,31 +650,46 @@ export default function AdminDashboard() {
               <h3 className="font-amiri text-lg font-bold" style={{ color: 'var(--navy-dark)' }}>
                 أعضاء الفريق
               </h3>
-              <button className="icon-action" style={{ color: 'var(--gold-main)' }} title="إضافة عضو">
+              <button
+                className="icon-action"
+                style={{ color: 'var(--gold-main)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                title="إضافة عضو"
+                onClick={() => setShowAddMember(true)}
+              >
                 <UserPlus size={16} />
               </button>
             </div>
-            <div className="flex flex-col gap-3.5">
-              {[
-                { name: 'محمد العتيبي', role: 'مشرف عام' },
-                { name: 'ليان السبيعي', role: 'محررة قوالب' },
-                { name: 'خالد منصور', role: 'مراجع ردود' },
-                { name: 'هدى الشمري', role: 'عضو' },
-              ].map((m, i) => (
-                <div key={i} className="flex items-center gap-3">
+            <div className="flex flex-col gap-3.5" style={{ minHeight: '176px', justifyContent: 'flex-start' }}>
+              {teamMembers.slice(0, 4).map((m) => (
+                <div key={m.id} className="flex items-center gap-3">
                   <div className="avatar-ring text-[10px]">{m.name.slice(0, 1)}</div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-main)' }}>
                       {m.name}
                     </p>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: '#f3e6c0', color: '#9c7a1f' }}>
+                  <span
+                    className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0"
+                    style={
+                      m.role === 'مشرف'
+                        ? { background: '#faf1de', color: '#b07a1f', fontWeight: 600 }
+                        : { background: '#efe9da', color: '#6b6457', fontWeight: 500 }
+                    }
+                  >
                     {m.role}
                   </span>
                 </div>
               ))}
+              {teamMembers.length === 0 && (
+                <p className="text-center text-xs text-muted py-6">لا يوجد أعضاء في الفريق حالياً.</p>
+              )}
             </div>
-            <button className="btn btn-outline-gold w-full mt-4 py-2 text-xs">إدارة الأعضاء</button>
+            <button
+              className="btn btn-outline-gold w-full mt-4 py-2 text-xs"
+              onClick={() => setShowManageMembers(true)}
+            >
+              إدارة الأعضاء
+            </button>
           </div>
 
         </div>
@@ -737,6 +784,125 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* modal add member */}
+      {showAddMember && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowAddMember(false)}>
+          <div className="modal" style={{ maxWidth: '400px' }}>
+            <div className="modal-header">
+              <h2>إضافة عضو جديد للفريق</h2>
+              <button className="icon-action" onClick={() => setShowAddMember(false)}>✕</button>
+            </div>
+            <form onSubmit={handleAddMember}>
+              <div className="form-group text-right">
+                <label className="form-label" htmlFor="member-name">الاسم الكامل *</label>
+                <input
+                  id="member-name"
+                  className="form-input text-right"
+                  value={newMemberName}
+                  onChange={(e) => setNewMemberName(e.target.value)}
+                  placeholder="مثال: يوسف خالد الحربي"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="form-group text-right">
+                <label className="form-label" htmlFor="member-role">نوع العضوية *</label>
+                <select
+                  id="member-role"
+                  className="form-select text-right"
+                  value={newMemberRole}
+                  onChange={(e) => setNewMemberRole(e.target.value as 'مشرف' | 'عضو')}
+                  required
+                  style={{ width: '100%', padding: '0.65rem 0.8rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-gold)', background: 'var(--bg-card)' }}
+                >
+                  <option value="عضو">عضو</option>
+                  <option value="مشرف">مشرف</option>
+                </select>
+              </div>
+              <div className="flex gap-2 justify-end mt-5">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAddMember(false)}>
+                  إلغاء
+                </button>
+                <button type="submit" className="btn btn-gold">
+                  إضافة للفريق
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* modal manage members */}
+      {showManageMembers && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowManageMembers(false)}>
+          <div className="modal" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h2>إدارة أعضاء الفريق</h2>
+              <button className="icon-action" onClick={() => setShowManageMembers(false)}>✕</button>
+            </div>
+            <div className="flex flex-col gap-4 text-right">
+              <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1">
+                {teamMembers.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg border" style={{ borderColor: 'var(--border-gold)', background: 'var(--bg-card)' }}>
+                    <div className="flex items-center gap-3">
+                      <div className="avatar-ring text-[10px]">{m.name.slice(0, 1)}</div>
+                      <div>
+                        <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-main)' }}>
+                          {m.name}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={m.role}
+                        onChange={(e) => {
+                          const role = e.target.value as 'مشرف' | 'عضو'
+                          setTeamMembers((prev) =>
+                            prev.map((x) => (x.id === m.id ? { ...x, role } : x))
+                          )
+                          showToast('تم تحديث الدور ✓')
+                        }}
+                        className="form-select text-xs py-1 px-2"
+                        style={{ width: 'auto', background: '#fff', border: '1px solid var(--border-gold)', minHeight: 'auto', padding: '0.2rem 0.6rem' }}
+                      >
+                        <option value="مشرف">مشرف</option>
+                        <option value="عضو">عضو</option>
+                      </select>
+                      <button
+                        type="button"
+                        className="icon-action"
+                        style={{ color: 'var(--danger)', padding: '0.25rem', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                        title="إزالة العضو"
+                        onClick={() => handleRemoveMember(m.id)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {teamMembers.length === 0 && (
+                  <p className="text-center text-xs text-muted py-6">لا يوجد أعضاء في الفريق حالياً.</p>
+                )}
+              </div>
+              <div className="flex justify-between items-center border-t pt-4 mt-2" style={{ borderColor: 'var(--border-gold)' }}>
+                <button
+                  className="btn btn-outline-gold text-xs py-1.5 px-3.5"
+                  onClick={() => {
+                    setShowManageMembers(false)
+                    setShowAddMember(true)
+                  }}
+                >
+                  + إضافة عضو جديد
+                </button>
+                <button type="button" className="btn btn-secondary text-xs" onClick={() => setShowManageMembers(false)}>
+                  إغلاق
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
