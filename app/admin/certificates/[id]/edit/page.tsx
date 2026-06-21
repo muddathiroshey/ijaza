@@ -1903,8 +1903,8 @@ export default function CertificateBuilderPage() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    transform: isActive ? 'scale(1.2)' : 'none',
-                    transition: 'transform 0.15s ease'
+                    backgroundColor: isActive ? '#f3e6c0' : 'transparent',
+                    transition: 'background-color 0.15s ease'
                   }}
                 >
                   <span style={{
@@ -1913,7 +1913,7 @@ export default function CertificateBuilderPage() {
                     borderRadius: 9999,
                     background: c,
                     display: 'block',
-                    boxShadow: isActive ? '0 0 0 2px var(--navy-dark), 0 0 0 3px #fff' : '0 0 0 1px #d6cdb0'
+                    boxShadow: '0 0 0 1px #d6cdb0'
                   }} />
                 </button>
               )
@@ -1941,8 +1941,8 @@ export default function CertificateBuilderPage() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      transform: isCustomActive ? 'scale(1.2)' : 'none',
-                      transition: 'transform 0.15s ease'
+                      backgroundColor: isCustomActive ? '#f3e6c0' : 'transparent',
+                      transition: 'background-color 0.15s ease'
                     }}
                   >
                     <span style={{
@@ -1956,8 +1956,7 @@ export default function CertificateBuilderPage() {
                       fontSize: '11px',
                       fontWeight: 'bold',
                       color: isCustomActive ? contrastColor : '#b8923a',
-                      background: isCustomActive ? activeColor : 'rgba(184, 146, 58, 0.08)',
-                      boxShadow: isCustomActive ? '0 0 0 2px var(--navy-dark), 0 0 0 3px #fff' : 'none'
+                      background: isCustomActive ? activeColor : 'rgba(184, 146, 58, 0.08)'
                     }}>
                       +
                     </span>
