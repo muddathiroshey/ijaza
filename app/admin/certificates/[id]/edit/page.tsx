@@ -756,6 +756,18 @@ export default function CertificateBuilderPage() {
 
   const responseCertRef = useRef<HTMLDivElement>(null)
 
+  // Drag and Drop State for Form Fields
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+
+  function handleDragEnter(targetIdx: number) {
+    if (draggedIndex === null || draggedIndex === targetIdx) return
+    const updated = [...formFields]
+    const [draggedItem] = updated.splice(draggedIndex, 1)
+    updated.splice(targetIdx, 0, draggedItem)
+    setDraggedIndex(targetIdx)
+    setFormFields(updated)
+  }
+
   // Upload state
   const [inlineUploading, setInlineUploading] = useState(false)
 
@@ -2481,13 +2493,30 @@ export default function CertificateBuilderPage() {
         <aside className="panel-right order-2 lg:order-1 w-full lg:w-72 flex-shrink-0 p-4 flex flex-col gap-4 overflow-y-auto">
           <p className="field-label">حقول النموذج ({formFields.length})</p>
           <div className="flex flex-col gap-0.5">
-            {formFields.map((f) => {
+            {formFields.map((f, idx) => {
               const isAuto = f.variable === 'issue_date' || f.variable === 'cert_no'
               const Icon = isAuto ? Clock : fieldIcon(f.type)
               return (
-                <div key={f.id} className={`layer-row ${selectedFieldId === f.id ? 'active' : ''}`} onClick={() => setSelectedFieldId(f.id)}>
-                  <GripVertical size={13} style={{ color: '#c2b896' }} />
-                  <Icon size={14} style={{ color: isAuto ? '#a39c8c' : '#6b6457' }} />
+                <div
+                  key={f.id}
+                  className={`layer-row ${selectedFieldId === f.id ? 'active' : ''}`}
+                  onClick={() => setSelectedFieldId(f.id)}
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggedIndex(idx)
+                    e.dataTransfer.effectAllowed = 'move'
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDragEnter={() => handleDragEnter(idx)}
+                  onDragEnd={() => setDraggedIndex(null)}
+                  style={{
+                    opacity: draggedIndex === idx ? 0.4 : 1,
+                    cursor: 'grab',
+                    transition: 'opacity 0.12s ease',
+                  }}
+                >
+                  <GripVertical size={13} style={{ color: '#c2b896', flexShrink: 0, cursor: 'grab' }} />
+                  <Icon size={14} style={{ color: isAuto ? '#a39c8c' : '#b8923a', flexShrink: 0, marginRight: '6px' }} />
                   <div className="flex-1 min-w-0 text-right pr-1.5">
                     <p className="text-xs truncate font-medium" style={{ color: '#1f2733' }}>
                       {f.label}
