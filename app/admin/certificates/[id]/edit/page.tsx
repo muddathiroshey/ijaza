@@ -1419,9 +1419,301 @@ export default function CertificateBuilderPage() {
       
       setSubmissions(prev => prev ? prev.filter((x) => !selectedSubmissionIds.includes(x.id)) : null)
       setSelectedSubmissionIds([])
-      showToast('تم حذف الردود المحددة بنجاح ✓')
     } catch {
       showToast('فشل حذف الردود المحددة', 'error')
+    }
+  }
+
+  // Premium PDF Responses Report Exporter
+  async function handleExportPdfReport() {
+    if (!submissions || submissions.length === 0) {
+      showToast('لا توجد ردود لتوليد التقرير منها', 'error')
+      return
+    }
+
+    showToast('جاري توليد سجل الردود المتميز PDF...')
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const jsPDF = (await import('jspdf')).default
+
+      // Create a temporary hidden container on the document body
+      const reportContainer = document.createElement('div')
+      reportContainer.style.position = 'fixed'
+      reportContainer.style.top = '-9999px'
+      reportContainer.style.left = '-9999px'
+      reportContainer.style.width = '794px' // A4 width at 96 DPI (approx)
+      reportContainer.style.direction = 'rtl'
+      document.body.appendChild(reportContainer)
+
+      // Let's divide submissions into pages of 12 items each.
+      const itemsPerPage = 12
+      const totalPagesReport = Math.ceil(submissions.length / itemsPerPage)
+
+      // We will render each page, screenshot it, and add to the PDF
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      })
+
+      // Load border.png into an Image object to make sure it loads cleanly
+      const borderImg = new Image()
+      borderImg.src = window.location.origin + '/border.png'
+      await new Promise((resolve) => {
+        if (borderImg.complete) resolve(true)
+        else {
+          borderImg.onload = () => resolve(true)
+          borderImg.onerror = () => resolve(true)
+        }
+      })
+
+      for (let pageIdx = 0; pageIdx < totalPagesReport; pageIdx++) {
+        const start = pageIdx * itemsPerPage
+        const end = Math.min(start + itemsPerPage, submissions.length)
+        const pageItems = submissions.slice(start, end)
+
+        // Create page DOM element
+        const pageEl = document.createElement('div')
+        pageEl.style.width = '794px'
+        pageEl.style.height = '1123px' // A4 portrait ratio (794 x 1123)
+        pageEl.style.position = 'relative'
+        pageEl.style.backgroundColor = '#fffdf8'
+        pageEl.style.color = '#1f2733'
+        pageEl.style.fontFamily = "'Tajawal', 'Cairo', sans-serif"
+        pageEl.style.boxSizing = 'border-box'
+
+        // Add the border image background
+        const bgImg = document.createElement('img')
+        bgImg.src = window.location.origin + '/border.png'
+        bgImg.style.position = 'absolute'
+        bgImg.style.top = '0'
+        bgImg.style.left = '0'
+        bgImg.style.width = '100%'
+        bgImg.style.height = '100%'
+        bgImg.style.objectFit = 'fill'
+        bgImg.style.zIndex = '1'
+        pageEl.appendChild(bgImg)
+
+        // Add the content area (padding 12% to prevent overlapping with the border)
+        const contentEl = document.createElement('div')
+        contentEl.style.position = 'absolute'
+        contentEl.style.inset = '0'
+        contentEl.style.padding = '12%'
+        contentEl.style.zIndex = '2'
+        contentEl.style.display = 'flex'
+        contentEl.style.flexDirection = 'column'
+        contentEl.style.justifyContent = 'space-between'
+        contentEl.style.boxSizing = 'border-box'
+
+        // 1. Page Header
+        const headerEl = document.createElement('div')
+        headerEl.style.marginBottom = '20px'
+        headerEl.style.textAlign = 'center'
+        headerEl.style.borderBottom = '2px solid #b8923a'
+        headerEl.style.paddingBottom = '10px'
+
+        const institutionEl = document.createElement('div')
+        institutionEl.innerText = 'أكاديمية النور للعلوم الشرعية'
+        institutionEl.style.fontSize = '12px'
+        institutionEl.style.color = '#a39c8c'
+        institutionEl.style.fontWeight = 'bold'
+        institutionEl.style.marginBottom = '4px'
+        headerEl.appendChild(institutionEl)
+
+        const titleEl = document.createElement('div')
+        titleEl.innerText = `سجل الردود والطلبات: ${templateName}`
+        titleEl.style.fontSize = '20px'
+        titleEl.style.fontFamily = "'Amiri', serif"
+        titleEl.style.fontWeight = 'bold'
+        titleEl.style.color = '#16243f'
+        headerEl.appendChild(titleEl)
+
+        const metaEl = document.createElement('div')
+        metaEl.style.display = 'flex'
+        metaEl.style.justifyContent = 'space-between'
+        metaEl.style.fontSize = '10px'
+        metaEl.style.color = '#6b6457'
+        metaEl.style.marginTop = '6px'
+
+        const dateSpan = document.createElement('span')
+        dateSpan.innerText = `تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}`
+        metaEl.appendChild(dateSpan)
+
+        const totalSpan = document.createElement('span')
+        totalSpan.innerText = `إجمالي المقبولين: ${submissions.length} طالب وطالبة`
+        metaEl.appendChild(totalSpan)
+
+        headerEl.appendChild(metaEl)
+        contentEl.appendChild(headerEl)
+
+        // 2. Table Area
+        const tableContainer = document.createElement('div')
+        tableContainer.style.flex = '1'
+
+        const table = document.createElement('table')
+        table.style.width = '100%'
+        table.style.borderCollapse = 'collapse'
+        table.style.fontSize = '10px'
+        table.style.textAlign = 'right'
+
+        // Table Header
+        const thead = document.createElement('thead')
+        const headerRow = document.createElement('tr')
+        headerRow.style.background = '#16243f'
+        headerRow.style.color = '#fff'
+
+        const thIdx = document.createElement('th')
+        thIdx.innerText = 'م'
+        thIdx.style.padding = '8px 6px'
+        thIdx.style.border = '1px solid #16243f'
+        thIdx.style.width = '30px'
+        thIdx.style.textAlign = 'center'
+        headerRow.appendChild(thIdx)
+
+        const thStudent = document.createElement('th')
+        thStudent.innerText = 'اسم الطالب والبريد الإلكتروني'
+        thStudent.style.padding = '8px'
+        thStudent.style.border = '1px solid #16243f'
+        headerRow.appendChild(thStudent)
+
+        const thDate = document.createElement('th')
+        thDate.innerText = 'تاريخ التقديم'
+        thDate.style.padding = '8px'
+        thDate.style.border = '1px solid #16243f'
+        thDate.style.width = '110px'
+        headerRow.appendChild(thDate)
+
+        // Custom fields (limit to max 3 custom fields to fit A4 page width nicely without overflow)
+        const customFieldsToShow = formFields.filter(f => f.variable !== 'student_name' && f.variable !== 'email').slice(0, 3)
+        customFieldsToShow.forEach((f) => {
+          const thField = document.createElement('th')
+          thField.innerText = f.label
+          thField.style.padding = '8px'
+          thField.style.border = '1px solid #16243f'
+          headerRow.appendChild(thField)
+        })
+
+        thead.appendChild(headerRow)
+        table.appendChild(thead)
+
+        // Table Body
+        const tbody = document.createElement('tbody')
+        pageItems.forEach((sub: any, subIdx: number) => {
+          const globalIdx = start + subIdx + 1
+          const tr = document.createElement('tr')
+          tr.style.background = subIdx % 2 === 0 ? '#fff' : '#fcf9f2'
+
+          // Index
+          const tdIdx = document.createElement('td')
+          tdIdx.innerText = globalIdx.toLocaleString('ar-EG')
+          tdIdx.style.padding = '8px 6px'
+          tdIdx.style.border = '1px solid #e7ddc4'
+          tdIdx.style.textAlign = 'center'
+          tdIdx.style.fontWeight = 'bold'
+          tdIdx.style.color = '#b8923a'
+          tr.appendChild(tdIdx)
+
+          // Student Info
+          const tdStudent = document.createElement('td')
+          tdStudent.style.padding = '8px'
+          tdStudent.style.border = '1px solid #e7ddc4'
+          
+          const nameDiv = document.createElement('div')
+          nameDiv.innerText = sub.data?.['student_name'] || sub.data?.['اسم الطالب'] || Object.values(sub.data)[0] || 'طالب'
+          nameDiv.style.fontWeight = 'bold'
+          nameDiv.style.color = '#16243f'
+          tdStudent.appendChild(nameDiv)
+
+          const email = sub.data?.['email'] || sub.data?.['البريد الإلكتروني'] || ''
+          if (email) {
+            const emailDiv = document.createElement('div')
+            emailDiv.innerText = email
+            emailDiv.style.fontSize = '8px'
+            emailDiv.style.color = '#a39c8c'
+            emailDiv.style.direction = 'ltr'
+            emailDiv.style.textAlign = 'right'
+            tdStudent.appendChild(emailDiv)
+          }
+          tr.appendChild(tdStudent)
+
+          // Submission Date
+          const tdDate = document.createElement('td')
+          const dateObj = new Date(sub.created_at)
+          tdDate.innerText = `${dateObj.toLocaleDateString('ar-SA')} · ${dateObj.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}`
+          tdDate.style.padding = '8px'
+          tdDate.style.border = '1px solid #e7ddc4'
+          tdDate.style.color = '#6b6457'
+          tr.appendChild(tdDate)
+
+          // Custom Fields values
+          customFieldsToShow.forEach((f) => {
+            const tdField = document.createElement('td')
+            tdField.innerText = sub.data?.[f.variable] || '—'
+            tdField.style.padding = '8px'
+            tdField.style.border = '1px solid #e7ddc4'
+            tdField.style.color = '#1f2733'
+            tr.appendChild(tdField)
+          })
+
+          tbody.appendChild(tr)
+        })
+
+        table.appendChild(tbody)
+        tableContainer.appendChild(table)
+        contentEl.appendChild(tableContainer)
+
+        // 3. Page Footer
+        const footerEl = document.createElement('div')
+        footerEl.style.borderTop = '1px dashed #e7ddc4'
+        footerEl.style.paddingTop = '8px'
+        footerEl.style.display = 'flex'
+        footerEl.style.justifyContent = 'space-between'
+        footerEl.style.fontSize = '9px'
+        footerEl.style.color = '#a39c8c'
+
+        const platformSpan = document.createElement('span')
+        platformSpan.innerText = 'منصة الإجازات والشهادات المعتمدة'
+        footerEl.appendChild(platformSpan)
+
+        const pageSpan = document.createElement('span')
+        pageSpan.innerText = `صفحة ${(pageIdx + 1).toLocaleString('ar-EG')} من ${totalPagesReport.toLocaleString('ar-EG')}`
+        footerEl.appendChild(pageSpan)
+
+        contentEl.appendChild(footerEl)
+        pageEl.appendChild(contentEl)
+
+        reportContainer.appendChild(pageEl)
+
+        // Screenshot the rendered page element
+        const canvas = await html2canvas(pageEl, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#fffdf8',
+        })
+
+        const imgData = canvas.toDataURL('image/png')
+        const pdfWidth = pdf.internal.pageSize.getWidth()
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+
+        if (pageIdx > 0) {
+          pdf.addPage()
+        }
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+
+        // Clear the container content to save memory
+        reportContainer.removeChild(pageEl)
+      }
+
+      // Cleanup
+      document.body.removeChild(reportContainer)
+
+      // Save PDF
+      pdf.save(`تقرير_ردود_${templateName}_مغلق.pdf`)
+      showToast('تم تحميل التقرير المتميز PDF بنجاح ✓')
+    } catch (err) {
+      console.error(err)
+      showToast('فشل توليد تقرير PDF', 'error')
     }
   }
 
@@ -1510,6 +1802,8 @@ export default function CertificateBuilderPage() {
         )
       })
     : []
+
+  const isFormClosed = cert ? (!cert.is_open || (cert.auto_close_at && new Date() > new Date(cert.auto_close_at))) : false
 
   const totalPages = Math.max(1, Math.ceil(filteredSubmissions.length / PAGE_SIZE))
   const safePage = Math.min(submissionsPage, totalPages)
@@ -1688,10 +1982,18 @@ export default function CertificateBuilderPage() {
             </button>
           </>
         ) : (
-          <button className="btn-outline px-4 py-2 rounded-full text-sm hidden sm:inline-flex items-center gap-1.5" onClick={handleExportCsv}>
-            <Download size={15} />
-            تصدير CSV
-          </button>
+          <div className="flex items-center gap-2">
+            {isFormClosed && (
+              <button className="btn-gold px-4 py-2 rounded-full text-sm inline-flex items-center gap-1.5 font-semibold" onClick={handleExportPdfReport}>
+                <Sparkles size={15} />
+                تنزيل سجل الردود المتميز PDF
+              </button>
+            )}
+            <button className="btn-outline px-4 py-2 rounded-full text-sm hidden sm:inline-flex items-center gap-1.5" onClick={handleExportCsv}>
+              <Download size={15} />
+              تصدير CSV
+            </button>
+          </div>
         )}
       </header>
 
@@ -2434,6 +2736,12 @@ export default function CertificateBuilderPage() {
                   {filteredSubmissions.length.toLocaleString('ar-EG')}
                 </span>
               </p>
+              {isFormClosed && (
+                <button type="button" className="btn-gold px-3.5 py-1.5 rounded-full text-xs flex items-center gap-1.5 font-semibold" onClick={handleExportPdfReport}>
+                  <Sparkles size={13} />
+                  تنزيل سجل الردود المتميز PDF
+                </button>
+              )}
               <button type="button" className="btn-outline px-3.5 py-1.5 rounded-full text-xs flex items-center gap-1.5" onClick={handleExportCsv}>
                 <Download size={13} />
                 تنزيل CSV للكل
