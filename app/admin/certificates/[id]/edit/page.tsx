@@ -2528,14 +2528,14 @@ export default function CertificateBuilderPage() {
                     )}
                   </div>
                   {f.required && !isAuto && (
-                    <span className="text-[10px] font-bold" style={{ color: '#9c3b3b' }}>
+                    <span className="font-bold" style={{ color: '#9c3b3b', fontSize: '1.35rem', marginRight: 'auto', marginLeft: '6px', lineHeight: 1 }}>
                       *
                     </span>
                   )}
                   {!isAuto && f.variable !== 'student_name' && f.variable !== 'email' && (
                     <button
                       type="button"
-                      className="icon-btn mr-auto"
+                      className={`icon-btn ${f.required ? '' : 'mr-auto'}`}
                       onClick={(e) => {
                         e.stopPropagation()
                         deleteField(f.id)
@@ -2548,6 +2548,10 @@ export default function CertificateBuilderPage() {
               )
             })}
           </div>
+          <button type="button" className="tool-btn" style={{ marginTop: '1rem' }} onClick={addField}>
+            <Plus size={15} />
+            إضافة حقل جديد
+          </button>
         </aside>
 
         <div className="order-1 lg:order-2 flex-1 overflow-auto p-6 lg:p-10 flex items-start justify-center content-bg">
