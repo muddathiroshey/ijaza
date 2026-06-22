@@ -1048,44 +1048,7 @@ export default function CertificateBuilderPage() {
 
     const newPages = [...pageRefs.current.map(ref => ref ? ref.innerHTML : '')]
     newPages[index] = pageEl.innerHTML
-
-    if (pageEl.scrollHeight > pageEl.clientHeight) {
-      const lastChild = pageEl.lastElementChild
-      if (lastChild) {
-        const lastChildHtml = lastChild.outerHTML
-        const currentHtml = pageEl.innerHTML
-        const lastIndex = currentHtml.lastIndexOf(lastChildHtml)
-        const updatedCurrent = lastIndex !== -1 ? currentHtml.substring(0, lastIndex) : currentHtml
-        
-        const nextPageContent = newPages[index + 1] || ''
-        const updatedNextPage = lastChildHtml + nextPageContent
-        
-        newPages[index] = updatedCurrent
-        newPages[index + 1] = updatedNextPage
-        
-        pageEl.innerHTML = updatedCurrent
-        
-        setPages(newPages)
-        
-        setTimeout(() => {
-          const nextRef = pageRefs.current[index + 1]
-          if (nextRef) {
-            nextRef.innerHTML = updatedNextPage
-            nextRef.focus()
-            const range = document.createRange()
-            const sel = window.getSelection()
-            range.selectNodeContents(nextRef)
-            range.collapse(true)
-            sel?.removeAllRanges()
-            sel?.addRange(range)
-            saveSelection()
-            handlePageInput(index + 1, nextRef)
-          }
-        }, 50)
-      }
-    } else {
-      setPages(newPages)
-    }
+    setPages(newPages)
   }
 
   const handlePageKeyDown = (index: number, e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -1120,13 +1083,27 @@ export default function CertificateBuilderPage() {
                 sel?.removeAllRanges()
                 sel?.addRange(range)
                 saveSelection()
-                handlePageInput(index - 1, prevRef)
               }
             }, 50)
           }
         }
       }
     }
+  }
+
+  const handleAddPage = () => {
+    setPages([...pages, ''])
+    showToast('تمت إضافة صفحة جديدة ✓')
+  }
+
+  const handleRemovePage = (index: number) => {
+    if (pages.length <= 1) return
+    if (!window.confirm('هل أنت متأكد من حذف هذه الصفحة ومحتوياتها؟')) return
+    
+    const newPages = [...pages]
+    newPages.splice(index, 1)
+    setPages(newPages)
+    showToast('تم حذف الصفحة ✓')
   }
 
   function restoreSelection() {
@@ -2507,6 +2484,42 @@ export default function CertificateBuilderPage() {
                 />
               </div>
             ))}
+
+            {/* أزرار إدارة الصفحات */}
+            <div className="flex items-center gap-3 mt-4 mb-8">
+              <button
+                type="button"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg transition-all hover:brightness-110"
+                style={{
+                  background: 'var(--navy-dark)',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(22, 36, 63, 0.15)',
+                }}
+                onClick={handleAddPage}
+              >
+                <Plus size={14} />
+                <span>إضافة صفحة جديدة</span>
+              </button>
+              {pages.length > 1 && (
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg transition-all hover:brightness-110"
+                  style={{
+                    background: '#7a2e2e',
+                    color: '#fff',
+                    border: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(122, 46, 46, 0.15)',
+                  }}
+                  onClick={() => handleRemovePage(pages.length - 1)}
+                >
+                  <Trash2 size={14} />
+                  <span>حذف الصفحة الأخيرة</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
