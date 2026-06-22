@@ -2543,13 +2543,18 @@ export default function CertificateBuilderPage() {
                         {f.required && <span style={{ color: '#9c3b3b' }}> *</span>}
                       </label>
                       {f.type === 'textarea' ? (
-                        <textarea className="preview-input" rows={3} placeholder={f.placeholder} disabled />
+                        <textarea className="form-textarea pointer-events-none" rows={3} placeholder={f.placeholder} readOnly />
                       ) : f.type === 'select' ? (
-                        <select className="preview-input" disabled>
+                        <select className="form-select pointer-events-none">
                           <option>{f.placeholder || 'اختر...'}</option>
                         </select>
                       ) : (
-                        <input className="preview-input" type={f.type === 'date' ? 'date' : f.type === 'number' ? 'number' : f.type === 'email' ? 'email' : 'text'} placeholder={f.placeholder} disabled />
+                        <input
+                          className="form-input pointer-events-none"
+                          type={f.type === 'date' ? 'text' : f.type === 'number' ? 'number' : f.type === 'email' ? 'email' : 'text'}
+                          placeholder={f.type === 'date' ? (f.placeholder || 'YYYY-MM-DD') : f.placeholder}
+                          readOnly
+                        />
                       )}
                     </div>
                   ))}

@@ -1255,11 +1255,11 @@ body {
   border-radius: 2px;
 }
 
-.dt-time-wheel-col.period-col {
+.dt-time-wheel-col.hour-col {
   border-right: 1px solid var(--border-gold);
 }
 
-[dir="ltr"] .dt-time-wheel-col.period-col {
+[dir="ltr"] .dt-time-wheel-col.hour-col {
   border-right: none;
   border-left: 1px solid var(--border-gold);
 }

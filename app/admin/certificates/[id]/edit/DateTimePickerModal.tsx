@@ -311,8 +311,28 @@ export default function DateTimePickerModal({
 
             {/* Wheels Scroll Columns */}
             <div className="dt-time-wheels-container">
+              {/* AM/PM Column */}
+              <div className="dt-time-wheel-col period-col">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPeriod('AM')}
+                  className={`dt-time-wheel-btn ${selectedPeriod === 'AM' ? 'active' : ''}`}
+                  style={{ height: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  ص
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPeriod('PM')}
+                  className={`dt-time-wheel-btn ${selectedPeriod === 'PM' ? 'active' : ''}`}
+                  style={{ height: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  م
+                </button>
+              </div>
+
               {/* Hour Wheel */}
-              <div className="dt-time-wheel-col" ref={hourScrollRef}>
+              <div className="dt-time-wheel-col hour-col" ref={hourScrollRef}>
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
                   <button
                     key={h}
@@ -337,26 +357,6 @@ export default function DateTimePickerModal({
                     {String(m).padStart(2, '0')}
                   </button>
                 ))}
-              </div>
-
-              {/* AM/PM Column */}
-              <div className="dt-time-wheel-col period-col">
-                <button
-                  type="button"
-                  onClick={() => setSelectedPeriod('AM')}
-                  className={`dt-time-wheel-btn ${selectedPeriod === 'AM' ? 'active' : ''}`}
-                  style={{ height: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  ص
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPeriod('PM')}
-                  className={`dt-time-wheel-btn ${selectedPeriod === 'PM' ? 'active' : ''}`}
-                  style={{ height: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  م
-                </button>
               </div>
             </div>
           </div>
