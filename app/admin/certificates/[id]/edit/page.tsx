@@ -2603,119 +2603,121 @@ export default function CertificateBuilderPage() {
           </div>
         </div>
 
-        <aside className="panel order-3 w-full lg:w-80 flex-shrink-0 p-5 overflow-y-auto">
-          {(!selectedFieldId || !formFields.some(f => f.id === selectedFieldId)) ? (
-            <div className="flex flex-col gap-6 text-right">
-              <div>
-                <p className="font-amiri text-lg font-bold" style={{ color: '#16243f' }}>
-                  إعدادات الاستمارة
-                </p>
-                <p className="text-xs mt-1" style={{ color: '#6b6457' }}>
-                  انقر أي حقل لتعديل خصائصه
-                </p>
-              </div>
-              <div>
-                <span className="field-label">وصف / تعليمات الاستمارة</span>
-                <textarea className="field-select" rows={3} value={formDescription} onChange={(e) => setFormDescription(e.target.value)} />
-              </div>
-              <div className="border-t pt-5 flex flex-col gap-4" style={{ borderColor: '#e7ddc4' }}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: '#1f2733' }}>
-                      استقبال الردود
-                    </p>
-                    <p className="text-[11px] text-right" style={{ color: '#a39c8c' }}>
-                      تفعيل/إيقاف استقبال طلبات جديدة
-                    </p>
-                  </div>
-                  <Switch checked={cert ? cert.is_open : true} onChange={async (v) => {
-                    try {
-                      const res = await fetch(`/api/certificates/${id}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ is_open: v })
-                      })
-                      if (!res.ok) throw new Error()
-                      const updated = await res.json()
-                      setCert(updated)
-                      showToast(v ? 'تم فتح الاستمارة لاستقبال الردود ✓' : 'تم إغلاق الاستمارة ✓')
-                    } catch {
-                      showToast('فشل تعديل حالة الاستمارة', 'error')
-                    }
-                  }} />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: '#1f2733' }}>
-                      إغلاق تلقائي مجدول
-                    </p>
-                    <p className="text-[11px] text-right" style={{ color: '#a39c8c' }}>
-                      إيقاف الاستقبال تلقائيًا في وقت محدد
-                    </p>
-                  </div>
-                  <Switch checked={autoCloseEnabled} onChange={(v) => {
-                    setAutoCloseEnabled(v)
-                    if (!v) setAutoCloseAt('')
-                  }} />
-                </div>
-
-                {autoCloseEnabled && (
-                  <button
-                    type="button"
-                    className="field-select text-right flex items-center justify-between"
-                    style={{ cursor: 'pointer', background: '#fffdf8', border: '1px solid #e0d6b8' }}
-                    onClick={() => setShowDatePicker(true)}
-                  >
-                    <Calendar size={14} style={{ color: 'var(--gold-main)' }} />
-                    <span>{autoCloseAt ? formatArabicDateTime(autoCloseAt) : 'اختر التاريخ والوقت...'}</span>
-                  </button>
-                )}
-              </div>
+        <aside className="panel order-3 w-full lg:w-80 flex-shrink-0 p-5 overflow-y-auto flex flex-col gap-6 text-right">
+          {/* General settings (always visible) */}
+          <div className="flex flex-col gap-5">
+            <div>
+              <p className="font-amiri text-lg font-bold" style={{ color: '#16243f' }}>
+                إعدادات الاستمارة
+              </p>
+              <p className="text-xs mt-1" style={{ color: '#6b6457' }}>
+                انقر أي حقل لتعديل خصائصه
+              </p>
             </div>
-          ) : (
-            (() => {
-              const selectedField = formFields.find(f => f.id === selectedFieldId)!
-              const isAuto = selectedField.variable === 'issue_date' || selectedField.variable === 'cert_no'
-              return (
-                <div className="flex flex-col gap-4 text-right">
-                  <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full mr-auto" style={{ background: isAuto ? '#efe9da' : selectedField.variable === 'student_name' || selectedField.variable === 'email' ? '#eef4ea' : '#f3e6c0', color: isAuto ? '#6b6457' : selectedField.variable === 'student_name' || selectedField.variable === 'email' ? '#4f7d4a' : '#9c7a1f' }}>
-                    {isAuto ? <Clock size={11} /> : selectedField.variable === 'student_name' || selectedField.variable === 'email' ? <Sparkles size={11} /> : <Plus size={11} />}
-                    {isAuto ? 'حقل تلقائي' : selectedField.variable === 'student_name' || selectedField.variable === 'email' ? 'مرتبط بالقالب' : 'حقل إضافي'}
-                  </span>
-                  <div>
-                    <span className="field-label">اسم الحقل</span>
-                    <input
-                      className="field-select"
-                      value={selectedField.label}
-                      onChange={(e) => updateField(selectedField.id, { label: e.target.value })}
-                      disabled={isAuto}
-                    />
-                  </div>
-                  {!isAuto && (
-                    <>
+            <div>
+              <span className="field-label">وصف / تعليمات الاستمارة</span>
+              <textarea className="field-select" rows={3} value={formDescription} onChange={(e) => setFormDescription(e.target.value)} />
+            </div>
+            <div className="border-t pt-5 flex flex-col gap-4" style={{ borderColor: '#e7ddc4' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: '#1f2733' }}>
+                    استقبال الردود
+                  </p>
+                  <p className="text-[11px] text-right" style={{ color: '#a39c8c' }}>
+                    تفعيل/إيقاف استقبال طلبات جديدة
+                  </p>
+                </div>
+                <Switch checked={cert ? cert.is_open : true} onChange={async (v) => {
+                  try {
+                    const res = await fetch(`/api/certificates/${id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ is_open: v })
+                    })
+                    if (!res.ok) throw new Error()
+                    const updated = await res.json()
+                    setCert(updated)
+                    showToast(v ? 'تم فتح الاستمارة لاستقبال الردود ✓' : 'تم إغلاق الاستمارة ✓')
+                  } catch {
+                    showToast('فشل تعديل حالة الاستمارة', 'error')
+                  }
+                }} />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: '#1f2733' }}>
+                    إغلاق تلقائي مجدول
+                  </p>
+                  <p className="text-[11px] text-right" style={{ color: '#a39c8c' }}>
+                    إيقاف الاستقبال تلقائيًا في وقت محدد
+                  </p>
+                </div>
+                <Switch checked={autoCloseEnabled} onChange={(v) => {
+                  setAutoCloseEnabled(v)
+                  if (!v) setAutoCloseAt('')
+                }} />
+              </div>
+
+              {autoCloseEnabled && (
+                <button
+                  type="button"
+                  className="field-select text-right flex items-center justify-between"
+                  style={{ cursor: 'pointer', background: '#fffdf8', border: '1px solid #e0d6b8' }}
+                  onClick={() => setShowDatePicker(true)}
+                >
+                  <Calendar size={14} style={{ color: 'var(--gold-main)' }} />
+                  <span>{autoCloseAt ? formatArabicDateTime(autoCloseAt) : 'اختر التاريخ والوقت...'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Selected Field settings (only visible if selectedFieldId matches a valid field) */}
+          {(() => {
+            if (!selectedFieldId) return null
+            const selectedField = formFields.find(f => f.id === selectedFieldId)
+            if (!selectedField) return null
+            const isAuto = selectedField.variable === 'issue_date' || selectedField.variable === 'cert_no'
+            return (
+              <div className="border-t pt-5 mt-2 flex flex-col gap-4 text-right" style={{ borderColor: '#e7ddc4' }}>
+                <p className="font-amiri text-[15px] font-bold" style={{ color: '#16243f' }}>
+                  خصائص الحقل: {selectedField.label}
+                </p>
+                <div>
+                  <span className="field-label">اسم الحقل</span>
+                  <input
+                    className="field-select"
+                    value={selectedField.label}
+                    onChange={(e) => updateField(selectedField.id, { label: e.target.value })}
+                    disabled={isAuto}
+                  />
+                </div>
+                {!isAuto && (
+                  <>
+                    <div>
+                      <span className="field-label">نوع الحقل</span>
+                      <select
+                        className="field-select"
+                        value={selectedField.type}
+                        onChange={(e) => updateField(selectedField.id, { type: e.target.value as any })}
+                        disabled={selectedField.variable === 'student_name' || selectedField.variable === 'email'}
+                      >
+                        {TYPE_OPTIONS.map((t) => (
+                          <option key={t.value} value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {selectedField.type === 'select' ? (
                       <div>
-                        <span className="field-label">نوع الحقل</span>
-                        <select
-                          className="field-select"
-                          value={selectedField.type}
-                          onChange={(e) => updateField(selectedField.id, { type: e.target.value as any })}
-                          disabled={selectedField.variable === 'student_name' || selectedField.variable === 'email'}
-                        >
-                          {TYPE_OPTIONS.map((t) => (
-                            <option key={t.value} value={t.value}>
-                              {t.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      {selectedField.type === 'select' ? (
-                        <div>
-                          <span className="field-label">خيارات القائمة المنسدلة</span>
-                          <div className="flex flex-col gap-2 mb-3">
-                            {selectedField.options?.map((opt, optIdx) => (
-                              <div key={optIdx} className="flex items-center gap-2">
-                                <input
+                        <span className="field-label">خيارات القائمة المنسدلة</span>
+                        <div className="flex flex-col gap-2 mb-3">
+                          {selectedField.options?.map((opt, optIdx) => (
+                            <div key={optIdx} className="flex items-center gap-2">
+                              <input
                                   className="field-select flex-1"
                                   value={opt}
                                   onChange={(e) => {
@@ -2724,79 +2726,78 @@ export default function CertificateBuilderPage() {
                                     updateField(selectedField.id, { options: newOpts })
                                   }}
                                   placeholder={`الخيار ${optIdx + 1}`}
-                                />
-                                {optIdx > 0 && (
-                                  <button
-                                    type="button"
-                                    className="p-1 hover:bg-[#e7ddc4] rounded"
-                                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#9c3b3b' }}
-                                    onClick={() => {
-                                      const newOpts = (selectedField.options || []).filter((_, idx) => idx !== optIdx)
-                                      updateField(selectedField.id, { options: newOpts })
-                                    }}
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                          <button
-                            type="button"
-                            className="btn btn-outline-gold w-full py-1.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 font-semibold"
-                            style={{ border: '1px dashed #c9a227', background: 'rgba(201,162,39,0.05)', color: '#9c7a1f', cursor: 'pointer' }}
-                            onClick={() => {
-                              const newOpts = [...(selectedField.options || []), `الخيار ${(selectedField.options?.length || 0) + 1}`]
-                              updateField(selectedField.id, { options: newOpts })
-                            }}
-                          >
-                            <Plus size={13} />
-                            إضافة خيار آخر
-                          </button>
+                              />
+                              {optIdx > 0 && (
+                                <button
+                                  type="button"
+                                  className="p-1 hover:bg-[#e7ddc4] rounded"
+                                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#9c3b3b' }}
+                                  onClick={() => {
+                                    const newOpts = (selectedField.options || []).filter((_, idx) => idx !== optIdx)
+                                    updateField(selectedField.id, { options: newOpts })
+                                  }}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      ) : (
-                        <div>
-                          <span className="field-label">نص توضيحي</span>
-                          <input
-                            className="field-select"
-                            value={selectedField.placeholder || ''}
-                            onChange={(e) => updateField(selectedField.id, { placeholder: e.target.value })}
-                          />
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold" style={{ color: '#1f2733' }}>
-                          حقل إجباري
-                        </p>
-                        <Switch
-                          checked={selectedField.required}
-                          onChange={(v) => updateField(selectedField.id, { required: v })}
-                          // @ts-ignore
-                          disabled={selectedField.variable === 'student_name' || selectedField.variable === 'email'}
+                        <button
+                          type="button"
+                          className="btn btn-outline-gold w-full py-1.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 font-semibold"
+                          style={{ border: '1px dashed #c9a227', background: 'rgba(201,162,39,0.05)', color: '#9c7a1f', cursor: 'pointer' }}
+                          onClick={() => {
+                            const newOpts = [...(selectedField.options || []), `الخيار ${(selectedField.options?.length || 0) + 1}`]
+                            updateField(selectedField.id, { options: newOpts })
+                          }}
+                        >
+                          <Plus size={13} />
+                          إضافة خيار آخر
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="field-label">نص توضيحي</span>
+                        <input
+                          className="field-select"
+                          value={selectedField.placeholder || ''}
+                          onChange={(e) => updateField(selectedField.id, { placeholder: e.target.value })}
                         />
                       </div>
-                    </>
-                  )}
-                  {isAuto && (
-                    <div className="rounded-lg p-3 text-xs leading-relaxed" style={{ background: '#faf1de', color: '#7a5c1f' }}>
-                      مصدر القيمة: {selectedField.variable === 'cert_no' ? 'رقم تسلسلي تلقائي' : 'تاريخ إرسال الرد'}. لا يظهر هذا الحقل للطالب ويملؤه النظام تلقائياً عند إصدار الإجازة.
+                    )}
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold" style={{ color: '#1f2733' }}>
+                        حقل إجباري
+                      </p>
+                      <Switch
+                        checked={selectedField.required}
+                        onChange={(v) => updateField(selectedField.id, { required: v })}
+                        // @ts-ignore
+                        disabled={selectedField.variable === 'student_name' || selectedField.variable === 'email'}
+                      />
                     </div>
-                  )}
-                  {!isAuto && selectedField.variable !== 'student_name' && selectedField.variable !== 'email' && (
-                    <button
-                      type="button"
-                      className="text-xs font-semibold inline-flex items-center gap-1.5 mt-2"
-                      style={{ color: '#9c3b3b', background: 'none', border: 'none', cursor: 'pointer' }}
-                      onClick={() => deleteField(selectedField.id)}
-                    >
-                      <Trash2 size={13} />
-                      حذف هذا الحقل
-                    </button>
-                  )}
-                </div>
-              )
-            })()
-          )}
+                  </>
+                )}
+                {isAuto && (
+                  <div className="rounded-lg p-3 text-xs leading-relaxed" style={{ background: '#faf1de', color: '#7a5c1f' }}>
+                    مصدر القيمة: {selectedField.variable === 'cert_no' ? 'رقم تسلسلي تلقائي' : 'تاريخ إرسال الرد'}. لا يظهر هذا الحقل للطالب ويملؤه النظام تلقائياً عند إصدار الإجازة.
+                  </div>
+                )}
+                {!isAuto && selectedField.variable !== 'student_name' && selectedField.variable !== 'email' && (
+                  <button
+                    type="button"
+                    className="text-xs font-semibold inline-flex items-center gap-1.5 mt-2"
+                    style={{ color: '#9c3b3b', background: 'none', border: 'none', cursor: 'pointer' }}
+                    onClick={() => deleteField(selectedField.id)}
+                  >
+                    <Trash2 size={13} />
+                    حذف هذا الحقل
+                  </button>
+                )}
+              </div>
+            )
+          })()}
         </aside>
       </div>
 
