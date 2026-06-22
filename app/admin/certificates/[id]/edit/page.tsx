@@ -818,6 +818,16 @@ export default function CertificateBuilderPage() {
     loadData()
   }, [loadData])
 
+  // Ensure that options is initialized if f.type === 'select'
+  useEffect(() => {
+    if (selectedFieldId) {
+      const field = formFields.find(f => f.id === selectedFieldId)
+      if (field && field.type === 'select' && (!field.options || field.options.length === 0)) {
+        updateField(selectedFieldId, { options: ['الخيار 1'] })
+      }
+    }
+  }, [selectedFieldId, formFields])
+
   // Synchronize HTML with page refs when tab becomes cert builder
   useEffect(() => {
     if (viewMode === 'builder') {
@@ -2509,16 +2519,6 @@ export default function CertificateBuilderPage() {
               )
             })}
           </div>
-          <button type="button" className="tool-btn" onClick={addField}>
-            <Plus size={15} />
-            إضافة حقل
-          </button>
-          <div className="rounded-xl p-3 flex gap-2 mt-1 text-right" style={{ background: '#faf1de', border: '1px solid #ecdcae' }}>
-            <Info size={14} style={{ color: '#b07a1f', flexShrink: 0, marginTop: 1 }} />
-            <p className="text-[11px] leading-relaxed" style={{ color: '#7a5c1f' }}>
-              الحقول المرتبطة بالقالب لا يمكن حذفها. الحقول التلقائية لا تظهر للطالب ويملؤها النظام عند الإرسال.
-            </p>
-          </div>
         </aside>
 
         <div className="order-1 lg:order-2 flex-1 overflow-auto p-6 lg:p-10 flex items-start justify-center content-bg">
@@ -2546,7 +2546,10 @@ export default function CertificateBuilderPage() {
                         <textarea className="form-textarea pointer-events-none" rows={3} placeholder={f.placeholder} readOnly />
                       ) : f.type === 'select' ? (
                         <select className="form-select pointer-events-none">
-                          <option>{f.placeholder || 'اختر...'}</option>
+                          <option value="">{f.placeholder || 'اختر...'}</option>
+                          {f.options?.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
                         </select>
                       ) : (
                         <input
@@ -2673,14 +2676,61 @@ export default function CertificateBuilderPage() {
                           ))}
                         </select>
                       </div>
-                      <div>
-                        <span className="field-label">{selectedField.type === 'select' ? 'الخيارات (مفصولة بفاصلة)' : 'نص توضيحي'}</span>
-                        <input
-                          className="field-select"
-                          value={selectedField.placeholder || ''}
-                          onChange={(e) => updateField(selectedField.id, { placeholder: e.target.value })}
-                        />
-                      </div>
+                      {selectedField.type === 'select' ? (
+                        <div>
+                          <span className="field-label">خيارات القائمة المنسدلة</span>
+                          <div className="flex flex-col gap-2 mb-3">
+                            {selectedField.options?.map((opt, optIdx) => (
+                              <div key={optIdx} className="flex items-center gap-2">
+                                <input
+                                  className="field-select flex-1"
+                                  value={opt}
+                                  onChange={(e) => {
+                                    const newOpts = [...(selectedField.options || [])]
+                                    newOpts[optIdx] = e.target.value
+                                    updateField(selectedField.id, { options: newOpts })
+                                  }}
+                                  placeholder={`الخيار ${optIdx + 1}`}
+                                />
+                                {optIdx > 0 && (
+                                  <button
+                                    type="button"
+                                    className="p-1 hover:bg-[#e7ddc4] rounded"
+                                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#9c3b3b' }}
+                                    onClick={() => {
+                                      const newOpts = (selectedField.options || []).filter((_, idx) => idx !== optIdx)
+                                      updateField(selectedField.id, { options: newOpts })
+                                    }}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-outline-gold w-full py-1.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 font-semibold"
+                            style={{ border: '1px dashed #c9a227', background: 'rgba(201,162,39,0.05)', color: '#9c7a1f', cursor: 'pointer' }}
+                            onClick={() => {
+                              const newOpts = [...(selectedField.options || []), `الخيار ${(selectedField.options?.length || 0) + 1}`]
+                              updateField(selectedField.id, { options: newOpts })
+                            }}
+                          >
+                            <Plus size={13} />
+                            إضافة خيار آخر
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="field-label">نص توضيحي</span>
+                          <input
+                            className="field-select"
+                            value={selectedField.placeholder || ''}
+                            onChange={(e) => updateField(selectedField.id, { placeholder: e.target.value })}
+                          />
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-semibold" style={{ color: '#1f2733' }}>
                           حقل إجباري
