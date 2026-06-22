@@ -2523,14 +2523,14 @@ export default function CertificateBuilderPage() {
 
         <div className="order-1 lg:order-2 flex-1 overflow-auto p-6 lg:p-10 flex items-start justify-center content-bg">
           <div className="w-full" style={{ maxWidth: 560 }}>
-            <div className="card-formal p-7 lg:p-9 text-right">
+            <div className="card-formal p-8 text-right">
               <p className="text-xs font-semibold mb-1.5" style={{ color: '#b8923a' }}>
                 أكاديمية النور للعلوم الشرعية
               </p>
               <h2 className="font-amiri text-2xl font-bold mb-2" style={{ color: '#16243f' }}>
                 {templateName}
               </h2>
-              <p className="text-sm mb-7 leading-relaxed" style={{ color: '#6b6457' }}>
+              <p className="text-sm mb-6 leading-relaxed" style={{ color: '#6b6457' }}>
                 {formDescription || 'يرجى تعبئة بياناتكم بدقة، حيث ستُستخدم كما هي في إصدار الإجازة.'}
               </p>
               <div className="flex flex-col gap-5">
@@ -2538,7 +2538,7 @@ export default function CertificateBuilderPage() {
                   .filter((f) => f.variable !== 'issue_date' && f.variable !== 'cert_no')
                   .map((f) => (
                     <div key={f.id}>
-                      <label className="text-sm font-semibold mb-1.5 block" style={{ color: '#1f2733' }}>
+                      <label className="text-sm font-semibold block" style={{ color: '#1f2733', marginBottom: '0.45rem' }}>
                         {f.label}
                         {f.required && <span style={{ color: '#9c3b3b' }}> *</span>}
                       </label>
@@ -2559,7 +2559,7 @@ export default function CertificateBuilderPage() {
                     </div>
                   ))}
               </div>
-              <button type="button" className="btn-gold w-full py-3 rounded-full text-sm mt-8">إرسال وإصدار الإجازة</button>
+              <button type="button" className="btn-gold w-full py-3 rounded-full text-sm" style={{ marginTop: '2rem' }}>إرسال وإصدار الإجازة</button>
             </div>
             <p className="text-center text-xs mt-3" style={{ color: '#9c948a' }}>
               هكذا سيظهر النموذج للطالب عند فتح الرابط
