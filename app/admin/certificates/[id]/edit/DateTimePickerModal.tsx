@@ -311,6 +311,34 @@ export default function DateTimePickerModal({
 
             {/* Wheels Scroll Columns */}
             <div className="dt-time-wheels-container">
+              {/* Minute Wheel */}
+              <div className="dt-time-wheel-col minute-col" ref={minuteScrollRef}>
+                {Array.from({ length: 60 }, (_, i) => i).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setSelectedMinute(m)}
+                    className={`dt-time-wheel-btn ${selectedMinute === m ? 'active' : ''}`}
+                  >
+                    {String(m).padStart(2, '0')}
+                  </button>
+                ))}
+              </div>
+
+              {/* Hour Wheel */}
+              <div className="dt-time-wheel-col hour-col" ref={hourScrollRef}>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setSelectedHour(h)}
+                    className={`dt-time-wheel-btn ${selectedHour === h ? 'active' : ''}`}
+                  >
+                    {String(h).padStart(2, '0')}
+                  </button>
+                ))}
+              </div>
+
               {/* AM/PM Column */}
               <div className="dt-time-wheel-col period-col">
                 <button
@@ -329,34 +357,6 @@ export default function DateTimePickerModal({
                 >
                   م
                 </button>
-              </div>
-
-              {/* Hour Wheel */}
-              <div className="dt-time-wheel-col hour-col" ref={hourScrollRef}>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
-                  <button
-                    key={h}
-                    type="button"
-                    onClick={() => setSelectedHour(h)}
-                    className={`dt-time-wheel-btn ${selectedHour === h ? 'active' : ''}`}
-                  >
-                    {String(h).padStart(2, '0')}
-                  </button>
-                ))}
-              </div>
-
-              {/* Minute Wheel */}
-              <div className="dt-time-wheel-col minute-col" ref={minuteScrollRef}>
-                {Array.from({ length: 60 }, (_, i) => i).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setSelectedMinute(m)}
-                    className={`dt-time-wheel-btn ${selectedMinute === m ? 'active' : ''}`}
-                  >
-                    {String(m).padStart(2, '0')}
-                  </button>
-                ))}
               </div>
             </div>
           </div>

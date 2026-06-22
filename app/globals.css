@@ -1264,11 +1264,11 @@ body {
   border-left: 1px solid var(--border-gold);
 }
 
-.dt-time-wheel-col.minute-col {
+.dt-time-wheel-col.period-col {
   border-right: 1px solid var(--border-gold);
 }
 
-[dir="ltr"] .dt-time-wheel-col.minute-col {
+[dir="ltr"] .dt-time-wheel-col.period-col {
   border-right: none;
   border-left: 1px solid var(--border-gold);
 }
