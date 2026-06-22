@@ -73,6 +73,7 @@ export default function AdminCertificateViewPage() {
   }
 
   const publicLink = `${window.location.origin}/c/${id}`
+  const isClosed = !cert.is_open || !!(cert.auto_close_at && new Date() > new Date(cert.auto_close_at))
 
   return (
     <div className="px-5 lg:px-8 py-7 text-right">
@@ -105,7 +106,7 @@ export default function AdminCertificateViewPage() {
       </div>
 
       {/* تفاصيل الرابط */}
-      {cert.is_open && (
+      {!isClosed && (
         <div className="card-formal p-4 mb-6 text-right" style={{ background: 'var(--bg-card)' }}>
           <p className="text-xs font-bold mb-2" style={{ color: 'var(--navy-dark)' }}>رابط تقديم الطلاب المباشر:</p>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -136,7 +137,7 @@ export default function AdminCertificateViewPage() {
           <div className="card-formal p-10 text-center flex flex-col items-center justify-center">
             <AlertCircle size={40} style={{ color: 'var(--gold-main)', opacity: 0.6 }} className="mb-3" />
             <h3 className="font-amiri text-lg font-bold" style={{ color: 'var(--navy-dark)' }}>لا توجد تقديمات بعد</h3>
-            {cert.is_open ? (
+            {!isClosed ? (
               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>انسخ الرابط أعلاه وشاركه مع طلابك لبدء استقبال الإجابات.</p>
             ) : (
               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>التقديم على هذه الشهادة مغلق حالياً.</p>

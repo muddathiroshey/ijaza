@@ -1299,6 +1299,21 @@ export default function CertificateBuilderPage() {
         currentHtml = editorHtml
       }
 
+      if (autoCloseEnabled && !autoCloseAt) {
+        showToast('يرجى تحديد تاريخ ووقت الإغلاق التلقائي', 'error')
+        setSaving(false)
+        return
+      }
+
+      if (autoCloseEnabled && autoCloseAt) {
+        const closeDate = new Date(meccaStringToUtc(autoCloseAt))
+        if (closeDate <= new Date()) {
+          showToast('تاريخ الإغلاق التلقائي يجب أن يكون في المستقبل', 'error')
+          setSaving(false)
+          return
+        }
+      }
+
       const configJson = JSON.stringify({
         html: currentHtml,
         bg: pageBg,
@@ -1313,6 +1328,7 @@ export default function CertificateBuilderPage() {
           description: formDescription,
           template_html: configJson,
           form_fields: formFields,
+          is_open: autoCloseEnabled ? true : undefined,
           auto_close_at: autoCloseEnabled && autoCloseAt ? meccaStringToUtc(autoCloseAt) : null,
         }),
       })
@@ -2628,16 +2644,18 @@ export default function CertificateBuilderPage() {
                     تفعيل/إيقاف استقبال طلبات جديدة
                   </p>
                 </div>
-                <Switch checked={cert ? cert.is_open : true} onChange={async (v) => {
+                <Switch checked={cert ? (cert.is_open && !autoCloseEnabled) : !autoCloseEnabled} onChange={async (v) => {
                   try {
                     const res = await fetch(`/api/certificates/${id}`, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ is_open: v })
+                      body: JSON.stringify({ is_open: v, auto_close_at: null })
                     })
                     if (!res.ok) throw new Error()
                     const updated = await res.json()
                     setCert(updated)
+                    setAutoCloseEnabled(false)
+                    setAutoCloseAt('')
                     showToast(v ? 'تم فتح الاستمارة لاستقبال الردود ✓' : 'تم إغلاق الاستمارة ✓')
                   } catch {
                     showToast('فشل تعديل حالة الاستمارة', 'error')
@@ -2654,9 +2672,24 @@ export default function CertificateBuilderPage() {
                     إيقاف الاستقبال تلقائيًا في وقت محدد
                   </p>
                 </div>
-                <Switch checked={autoCloseEnabled} onChange={(v) => {
+                <Switch checked={autoCloseEnabled} onChange={async (v) => {
                   setAutoCloseEnabled(v)
-                  if (!v) setAutoCloseAt('')
+                  if (!v) {
+                    setAutoCloseAt('')
+                    try {
+                      const res = await fetch(`/api/certificates/${id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ is_open: false, auto_close_at: null })
+                      })
+                      if (!res.ok) throw new Error()
+                      const updated = await res.json()
+                      setCert(updated)
+                      showToast('تم إغلاق الاستمارة وإلغاء الجدولة ✓')
+                    } catch {
+                      showToast('فشل تعديل حالة الاستمارة', 'error')
+                    }
+                  }
                 }} />
               </div>
 

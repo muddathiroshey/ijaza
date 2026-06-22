@@ -83,7 +83,8 @@ function Watermark() {
 }
 
 function StatusBadge({ isOpen, autoCloseAt }: { isOpen: boolean; autoCloseAt?: string | null }) {
-  if (!isOpen) {
+  const isClosed = !isOpen || (autoCloseAt && new Date() > new Date(autoCloseAt))
+  if (isClosed) {
     return (
       <span className="badge badge-closed inline-flex items-center gap-1.5">
         <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#8a8378' }} />
@@ -128,18 +129,19 @@ function CertificateCard({
   openMenu: string | null
   setOpenMenu: (id: string | null) => void
   onDelete: (id: string, title: string) => void
-  onToggleStatus: (id: string, currentStatus: boolean) => void
+  onToggleStatus: (id: string, isClosed: boolean) => void
   onCopyLink: (id: string) => void
   onDownloadCsv: (cert: Certificate) => void
 }) {
   const isMenuOpen = openMenu === cert.id
   const responseCount = cert.submissions?.[0]?.count ?? 0
+  const isClosed = !cert.is_open || !!(cert.auto_close_at && new Date() > new Date(cert.auto_close_at))
 
   return (
     <div className="card-formal relative flex flex-col overflow-hidden">
       <div className="p-3 pb-0">
         <div className="rounded-lg overflow-hidden border" style={{ borderColor: '#e7ddc4' }}>
-          <CertThumb tone={cert.is_open ? 'gold' : 'muted'} />
+          <CertThumb tone={isClosed ? 'muted' : 'gold'} />
         </div>
       </div>
 
@@ -185,11 +187,11 @@ function CertificateCard({
                     className="dropdown-item"
                     onClick={() => {
                       setOpenMenu(null)
-                      onToggleStatus(cert.id, cert.is_open)
+                      onToggleStatus(cert.id, isClosed)
                     }}
                   >
                     <Clock size={14} />
-                    {cert.is_open ? 'إيقاف استقبال الردود' : 'إعادة فتح الاستقبال'}
+                    {isClosed ? 'إعادة فتح الاستقبال' : 'إيقاف استقبال الردود'}
                   </button>
                   <button
                     className="dropdown-item"
@@ -300,19 +302,20 @@ export default function AdminDashboard() {
   }
 
   // Handle Open/Close Toggle
-  async function handleToggleStatus(id: string, currentStatus: boolean) {
+  async function handleToggleStatus(id: string, isClosed: boolean) {
     try {
       const res = await fetch(`/api/certificates/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_open: !currentStatus }),
+        body: JSON.stringify({ is_open: isClosed }),
       })
       if (!res.ok) throw new Error()
       const updated = await res.json()
       setCertificates((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, is_open: updated.is_open } : c))
+        prev.map((c) => (c.id === id ? { ...c, is_open: updated.is_open, auto_close_at: updated.auto_close_at } : c))
       )
-      showToast(updated.is_open ? 'تم فتح استقبال الردود' : 'تم إيقاف استقبال الردود')
+      const formNowClosed = !updated.is_open || (updated.auto_close_at && new Date() > new Date(updated.auto_close_at))
+      showToast(formNowClosed ? 'تم إيقاف استقبال الردود' : 'تم فتح استقبال الردود')
     } catch {
       showToast('حدث خطأ أثناء تغيير الحالة', 'error')
     }
@@ -430,7 +433,7 @@ export default function AdminDashboard() {
 
   // Stats Calculations
   const totalCerts = certificates.length
-  const activeCerts = certificates.filter((c) => c.is_open).length
+  const activeCerts = certificates.filter((c) => c.is_open && (!c.auto_close_at || new Date() <= new Date(c.auto_close_at))).length
   const totalSubmissions = certificates.reduce(
     (sum, cert) => sum + (cert.submissions?.[0]?.count ?? 0),
     0

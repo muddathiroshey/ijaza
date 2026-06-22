@@ -33,9 +33,25 @@ export async function PATCH(_req: Request, ctx: RouteContext<'/api/certificates/
       if (resetError) throw resetError
     }
 
+    let updateData = { ...body, updated_at: new Date().toISOString() }
+
+    if (body.is_open === true && !('auto_close_at' in body)) {
+      const { data: cert } = await supabase
+        .from('certificates')
+        .select('auto_close_at')
+        .eq('id', id)
+        .single()
+
+      if (cert && cert.auto_close_at && new Date() > new Date(cert.auto_close_at)) {
+        updateData.auto_close_at = null
+      }
+    } else if (body.is_open === false) {
+      updateData.auto_close_at = null
+    }
+
     const { data, error } = await supabase
       .from('certificates')
-      .update({ ...body, updated_at: new Date().toISOString() })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()
