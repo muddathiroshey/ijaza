@@ -54,11 +54,47 @@ export default function StudentCertificatePage() {
   const [loading, setLoading] = useState(true)
   const [step, setStep] = useState<Step>('form')
   const [formData, setFormData] = useState<Record<string, string>>({})
+  const [submission, setSubmission] = useState<any>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [generatedHtml, setGeneratedHtml] = useState('')
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const certRef = useRef<HTMLDivElement>(null)
+
+  function getDisplayData(data: Record<string, string>, sub: any): Record<string, string> {
+    const displayData: Record<string, string> = { ...data }
+    
+    // 1. Map form fields (both variable and label keys)
+    cert?.form_fields?.forEach((f) => {
+      const val = data[f.variable] !== undefined ? data[f.variable] : (data[f.label] !== undefined ? data[f.label] : '')
+      displayData[f.label] = val
+      displayData[f.variable] = val
+    })
+
+    // 2. Map auto fields
+    const year = sub ? new Date(sub.created_at).getFullYear() : new Date().getFullYear()
+    const shortId = sub ? sub.id.slice(0, 8).toUpperCase() : 'XXXX'
+    const certNo = `IJ-${year}-${shortId}`
+    const issueDate = sub 
+      ? new Date(sub.created_at).toLocaleDateString('ar-SA')
+      : new Date().toLocaleDateString('ar-SA')
+
+    displayData['رقم الإجازة'] = certNo
+    displayData['cert_no'] = certNo
+    displayData['تاريخ الإصدار'] = issueDate
+    displayData['issue_date'] = issueDate
+
+    // 3. Map standard inputs (student_name, email)
+    const nameVal = data['student_name'] || data['اسم الطالب'] || ''
+    displayData['student_name'] = nameVal
+    displayData['اسم الطالب'] = nameVal
+
+    const emailVal = data['email'] || data['البريد الإلكتروني'] || ''
+    displayData['email'] = emailVal
+    displayData['البريد الإلكتروني'] = emailVal
+
+    return displayData
+  }
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type })
@@ -167,9 +203,12 @@ export default function StudentCertificatePage() {
         throw new Error(errData.error || 'فشل إرسال البيانات للرئيسية')
       }
 
+      const subData = await res.json()
+      setSubmission(subData)
+
       // If it's a legacy template, prepare the HTML fallback
       if (cert && cert.template_html && !cert.template_html.startsWith('{')) {
-        const html = generateCertificateHtml(formData)
+        const html = generateCertificateHtml(getDisplayData(formData, subData))
         setGeneratedHtml(html)
       }
 
@@ -328,10 +367,14 @@ export default function StudentCertificatePage() {
     if (isJsonTemplate && builderConfig) {
       const htmlStr = builderConfig.html || ''
       if (htmlStr.includes('cert-page-content')) {
-        const pageRegex = /<div class="cert-page-content">([\s\S]*?)<\/div>/g
-        let m
-        while ((m = pageRegex.exec(htmlStr)) !== null) {
-          pages.push(m[1])
+        const parts = htmlStr.split(/<div class="cert-page-content">/g)
+        for (let i = 1; i < parts.length; i++) {
+          let part = parts[i]
+          const lastDivIndex = part.lastIndexOf('</div>')
+          if (lastDivIndex !== -1) {
+            part = part.substring(0, lastDivIndex) + part.substring(lastDivIndex + 6)
+          }
+          pages.push(part)
         }
       }
       if (pages.length === 0) {
@@ -340,19 +383,31 @@ export default function StudentCertificatePage() {
     }
 
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: '#1c1c1f' }}>
+      <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #111a2e, #1c2a47)' }}>
         {/* شريط الإجراءات */}
-        <div className="bg-[#121214] border-b border-[#2d2d30] py-4 px-6 sticky top-0 z-50 text-right">
+        <div style={{ backgroundColor: '#16243f', borderBottom: '1.5px solid #c9a227', padding: '1rem 1.5rem', position: 'sticky', top: 0, zIndex: 50, textAlign: 'right' }}>
           <div className="container max-w-[900px] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="font-amiri text-lg font-bold text-white leading-tight">
+              <h2 style={{ color: '#fffdf8', fontFamily: "'Amiri', serif", fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>
                 🎉 تهانينا! صدرت إجازتك بنجاح
               </h2>
-              <p className="text-[11px]" style={{ color: '#a0a0c0' }}>{cert.title}</p>
+              <p style={{ color: '#c2b896', fontSize: '0.8rem', marginTop: '0.2rem', margin: 0 }}>{cert.title}</p>
             </div>
             <div className="flex gap-2.5">
               <button
-                className="btn btn-secondary border-[#444] text-[#ccc] hover:bg-[#222]"
+                className="btn"
+                style={{
+                  backgroundColor: 'transparent',
+                  color: '#fffdf8',
+                  border: '1.5px solid #e7ddc4',
+                  borderRadius: '9999px',
+                  padding: '0.6rem 1.4rem',
+                  cursor: 'pointer',
+                  fontFamily: "'Tajawal', sans-serif",
+                  fontSize: '0.88rem',
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s',
+                }}
                 onClick={() => {
                   setStep('form')
                   setGeneratedHtml('')
@@ -411,7 +466,7 @@ export default function StudentCertificatePage() {
                       direction: 'rtl',
                       zIndex: 2,
                     }}
-                    dangerouslySetInnerHTML={{ __html: replacePlaceholders(pageHtml, formData) }}
+                    dangerouslySetInnerHTML={{ __html: replacePlaceholders(pageHtml, getDisplayData(formData, submission)) }}
                   />
                 </div>
               ))}

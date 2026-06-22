@@ -144,16 +144,19 @@ function replacePlaceholders(html: string, formData: Record<string, string>): st
 
 function getPagesFromHtml(htmlStr: string): string[] {
   if (!htmlStr) return ['']
+  const pages: string[] = []
   if (htmlStr.includes('cert-page-content')) {
-    const pageRegex = /<div class="cert-page-content">([\s\S]*?)<\/div>/g
-    const list: string[] = []
-    let m
-    while ((m = pageRegex.exec(htmlStr)) !== null) {
-      list.push(m[1])
+    const parts = htmlStr.split(/<div class="cert-page-content">/g)
+    for (let i = 1; i < parts.length; i++) {
+      let part = parts[i]
+      const lastDivIndex = part.lastIndexOf('</div>')
+      if (lastDivIndex !== -1) {
+        part = part.substring(0, lastDivIndex) + part.substring(lastDivIndex + 6)
+      }
+      pages.push(part)
     }
-    return list.length > 0 ? list : ['']
   }
-  return [htmlStr]
+  return pages.length > 0 ? pages : [htmlStr]
 }
 
 const FONT_OPTIONS = [
@@ -190,30 +193,34 @@ function CertificateModal({ response, onClose, cert, responseCertRef, onDownload
     html = cert.template_html
   }
 
-  const displayData = { ...response.data }
-  if (response.certificate_no) {
-    displayData['رقم الإجازة'] = response.certificate_no
-  } else {
-    displayData['رقم الإجازة'] = 'IJ-2026-XXXX'
-  }
+  const displayData: Record<string, string> = { ...response.data }
+  cert.form_fields?.forEach((f: any) => {
+    const val = response.data?.[f.variable] !== undefined ? response.data[f.variable] : (response.data?.[f.label] !== undefined ? response.data[f.label] : '')
+    displayData[f.label] = val
+    displayData[f.variable] = val
+  })
+
+  const year = new Date(response.created_at).getFullYear()
+  const shortId = response.id.slice(0, 8).toUpperCase()
+  const certNo = `IJ-${year}-${shortId}`
+  displayData['رقم الإجازة'] = response.certificate_no || certNo
+  displayData['cert_no'] = response.certificate_no || certNo
   
   if (!displayData['تاريخ الإصدار']) {
     displayData['تاريخ الإصدار'] = new Date(response.created_at || new Date()).toLocaleDateString('ar-SA')
   }
+  displayData['issue_date'] = displayData['تاريخ الإصدار']
+
+  const nameVal = response.data?.['student_name'] || response.data?.['اسم الطالب'] || ''
+  displayData['student_name'] = nameVal
+  displayData['اسم الطالب'] = nameVal
+
+  const emailVal = response.data?.['email'] || response.data?.['البريد الإلكتروني'] || ''
+  displayData['email'] = emailVal
+  displayData['البريد الإلكتروني'] = emailVal
 
   const replacedHtml = replacePlaceholders(html, displayData)
-  
-  const modalPages: string[] = []
-  if (replacedHtml.includes('cert-page-content')) {
-    const pageRegex = /<div class="cert-page-content">([\s\S]*?)<\/div>/g
-    let m
-    while ((m = pageRegex.exec(replacedHtml)) !== null) {
-      modalPages.push(m[1])
-    }
-  }
-  if (modalPages.length === 0) {
-    modalPages.push(replacedHtml)
-  }
+  const modalPages = getPagesFromHtml(replacedHtml)
 
   return (
     <div className="modal-overlay" onClick={onClose}>
