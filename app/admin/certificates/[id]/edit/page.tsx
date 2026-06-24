@@ -1962,23 +1962,25 @@ export default function CertificateBuilderPage() {
       ` }} />
 
       {/* ===== الشريط العلوي المشترك ===== */}
-      <header className="topbar flex flex-wrap items-center gap-3 px-5 lg:px-7 py-3">
-        <Link href="/admin" className="icon-btn flex items-center justify-center" style={{ width: '2.1rem', height: '2.1rem' }} title="رجوع إلى الإجازات">
-          <ArrowRight size={18} />
-        </Link>
-        <div className="flex flex-col min-w-0 text-right">
-          <p className="text-[11px] font-semibold" style={{ color: '#b8923a' }}>
-            الإجازات
-          </p>
-          <input
-            className="name-input"
-            style={{ width: 'min(60vw, 360px)' }}
-            value={templateName}
-            onChange={(e) => setTemplateName(e.target.value)}
-          />
+      <header className="topbar px-5 lg:px-7 py-3 gap-3" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}>
+        <div className="flex items-center gap-3 min-w-0 justify-start">
+          <Link href="/admin" className="icon-btn flex items-center justify-center" style={{ width: '2.1rem', height: '2.1rem' }} title="رجوع إلى الإجازات">
+            <ArrowRight size={18} />
+          </Link>
+          <div className="flex flex-col min-w-0 text-right">
+            <p className="text-[11px] font-semibold" style={{ color: '#b8923a' }}>
+              الإجازات
+            </p>
+            <input
+              className="name-input"
+              style={{ width: 'min(40vw, 240px)' }}
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+            />
+          </div>
         </div>
 
-        <div className="flex-1 flex justify-center">
+        <div className="flex justify-center">
           <div className="tab-toggle">
             <button className={`tab-btn ${viewMode === 'form_editor' ? 'active' : ''}`} onClick={() => handleTabChange('form_editor')}>
               الاستمارة
@@ -1992,31 +1994,33 @@ export default function CertificateBuilderPage() {
           </div>
         </div>
 
-        {viewMode !== 'responses' ? (
-          <>
-            <button className="btn-outline px-4 py-2 rounded-full text-sm hidden sm:inline-flex items-center gap-1.5" onClick={() => window.open(publicLink, '_blank')}>
-              <Eye size={15} />
-              معاينة
-            </button>
-            <button className="btn-gold px-4 py-2 rounded-full text-sm inline-flex items-center gap-1.5" onClick={handleSave} disabled={saving}>
-              <Save size={15} />
-              {saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
-            </button>
-          </>
-        ) : (
-          <div className="flex items-center gap-2">
-            {isFormClosed && (
-              <button className="btn-gold px-4 py-2 rounded-full text-sm inline-flex items-center gap-1.5 font-semibold" onClick={handleExportPdfReport}>
-                <Sparkles size={15} />
-                تنزيل سجل الردود المتميز PDF
+        <div className="flex items-center gap-2 justify-end">
+          {viewMode !== 'responses' ? (
+            <>
+              <button className="btn-outline px-4 py-2 rounded-full text-sm hidden sm:inline-flex items-center gap-1.5" onClick={() => window.open(publicLink, '_blank')}>
+                <Eye size={15} />
+                معاينة
               </button>
-            )}
-            <button className="btn-outline px-4 py-2 rounded-full text-sm hidden sm:inline-flex items-center gap-1.5" onClick={handleExportCsv}>
-              <Download size={15} />
-              تصدير CSV
-            </button>
-          </div>
-        )}
+              <button className="btn-gold px-4 py-2 rounded-full text-sm inline-flex items-center gap-1.5" onClick={handleSave} disabled={saving}>
+                <Save size={15} />
+                {saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              {isFormClosed && (
+                <button className="btn-gold px-4 py-2 rounded-full text-sm inline-flex items-center gap-1.5 font-semibold" onClick={handleExportPdfReport}>
+                  <Sparkles size={15} />
+                  تنزيل سجل الردود المتميز PDF
+                </button>
+              )}
+              <button className="btn-outline px-4 py-2 rounded-full text-sm hidden sm:inline-flex items-center gap-1.5" onClick={handleExportCsv}>
+                <Download size={15} />
+                تصدير CSV
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* ===== تبويب الإجازة: محرر المستند ===== */}
