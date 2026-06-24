@@ -253,6 +253,7 @@ export default function ResponsesTable() {
                 }}
                 placeholder="ابحث باسم الطالب أو بريده..."
                 className="bg-transparent outline-none text-sm flex-1 placeholder:opacity-60"
+                style={{ border: "none" }}
               />
             </div>
             <div className="flex items-center gap-5">

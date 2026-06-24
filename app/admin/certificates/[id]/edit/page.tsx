@@ -2868,6 +2868,7 @@ export default function CertificateBuilderPage() {
                 }}
                 placeholder="ابحث باسم الطالب أو بريده..."
                 className="bg-transparent outline-none text-sm flex-1 placeholder:opacity-60 text-right"
+                style={{ border: 'none' }}
               />
             </div>
             

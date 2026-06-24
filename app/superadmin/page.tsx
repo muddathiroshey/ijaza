@@ -344,6 +344,7 @@ export default function SuperAdminPanel() {
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="ابحث عن مؤسسة..."
                     className="bg-transparent outline-none text-sm flex-1 placeholder:opacity-60 text-right"
+                    style={{ border: 'none' }}
                   />
                 </div>
                 <div className="flex items-center gap-2 overflow-x-auto">
