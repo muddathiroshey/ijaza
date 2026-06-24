@@ -1846,9 +1846,10 @@ export default function CertificateBuilderPage() {
   }
 
   return (
-    <div dir="rtl" className="builder-app min-h-screen flex flex-col">
+    <div dir="rtl" className="builder-app h-screen flex flex-col overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Tajawal:wght@300;400;500;700;800;900&family=Cairo:wght@200..1000&family=Reem+Kufi:wght@400..700&family=Aref+Ruqaa:wght@400;700&family=Lalezar&family=El+Messiri:wght@400..700&family=Changa:wght@200..800&family=Almarai:wght@300;400;700;800&family=Marhey:wght@300..700&family=Scheherazade+New:wght@400;700&display=swap');
+        html { scrollbar-gutter: stable; }
         .builder-app { background:#f7f2e7; color:#1f2733; font-family:'Tajawal', sans-serif; }
         .font-amiri { font-family:'Amiri', serif; }
 
