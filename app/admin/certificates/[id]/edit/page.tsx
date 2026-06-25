@@ -730,7 +730,7 @@ export default function CertificateBuilderPage() {
   const savedRangeRef = useRef<Range | null>(null)
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape')
   const [pageBg, setPageBg] = useState('#fffdf8')
-  const [fieldMenuOpen, setFieldMenuOpen] = useState(false)
+
   const [imageMenuOpen, setImageMenuOpen] = useState(false)
   const [fontMenuOpen, setFontMenuOpen] = useState(false)
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false)
@@ -852,8 +852,11 @@ export default function CertificateBuilderPage() {
     if (viewMode === 'builder') {
       pages.forEach((pageContent, idx) => {
         const ref = pageRefs.current[idx]
-        if (ref && ref.innerHTML !== pageContent) {
-          ref.innerHTML = pageContent
+        if (ref) {
+          if (ref.innerHTML !== pageContent) {
+            ref.innerHTML = pageContent
+          }
+          convertAllTextTagsToChips(ref)
         }
       })
     }
@@ -1195,9 +1198,114 @@ export default function CertificateBuilderPage() {
     saveSelection()
   }
 
-  function insertField(label: string) {
-    insertHtmlAtCursor(`<span contenteditable="false" class="field-chip">{ ${label} }</span>&nbsp;`)
-    setFieldMenuOpen(false)
+  function insertField() {
+    insertHtmlAtCursor(`<span contenteditable="true" class="field-chip">{ }</span>&nbsp;`)
+  }
+
+  const checkAndConvertCurrentNode = () => {
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+    const range = sel.getRangeAt(0)
+    const node = range.startContainer
+    if (node.nodeType !== Node.TEXT_NODE) return
+
+    const text = node.nodeValue || ''
+    const regex = /\{([^{}]*)\}/
+    const match = text.match(regex)
+    if (match && match.index !== undefined) {
+      const matchText = match[0]
+
+      // Verify that this node is not already inside a .field-chip
+      let parent = node.parentElement
+      let isInsideChip = false
+      while (parent && !parent.classList.contains('doc-page')) {
+        if (parent.classList.contains('field-chip')) {
+          isInsideChip = true
+          break
+        }
+        parent = parent.parentElement
+      }
+      if (isInsideChip) return
+
+      const startOffset = match.index
+      const endOffset = startOffset + matchText.length
+
+      const replacementRange = document.createRange()
+      replacementRange.setStart(node, startOffset)
+      replacementRange.setEnd(node, endOffset)
+
+      const span = document.createElement('span')
+      span.className = 'field-chip'
+      span.contentEditable = 'true'
+      span.innerText = matchText
+
+      replacementRange.deleteContents()
+      replacementRange.insertNode(span)
+
+      // Place the cursor after the newly created span
+      const newRange = document.createRange()
+      newRange.setStartAfter(span)
+      newRange.collapse(true)
+      sel.removeAllRanges()
+      sel.addRange(newRange)
+      saveSelection()
+    }
+  }
+
+  const convertAllTextTagsToChips = (pageEl: HTMLElement) => {
+    const walk = document.createTreeWalker(pageEl, NodeFilter.SHOW_TEXT, null)
+    let node: Node | null
+    const matches: { textNode: Node; start: number; end: number; text: string }[] = []
+
+    while ((node = walk.nextNode())) {
+      let isInsideChip = false
+      let parent = node.parentElement
+      while (parent && parent !== pageEl) {
+        if (parent.classList.contains('field-chip')) {
+          isInsideChip = true
+          break
+        }
+        parent = parent.parentElement
+      }
+      if (isInsideChip) continue
+
+      const val = node.nodeValue || ''
+      const regex = /\{([^{}]*)\}/g
+      let match
+      while ((match = regex.exec(val)) !== null) {
+        matches.push({
+          textNode: node,
+          start: match.index,
+          end: match.index + match[0].length,
+          text: match[0]
+        })
+      }
+    }
+
+    if (matches.length === 0) return
+
+    for (let i = matches.length - 1; i >= 0; i--) {
+      const { textNode, start, end, text } = matches[i]
+      const range = document.createRange()
+      range.setStart(textNode, start)
+      range.setEnd(textNode, end)
+
+      const span = document.createElement('span')
+      span.className = 'field-chip'
+      span.contentEditable = 'true'
+      span.innerText = text
+
+      range.deleteContents()
+      range.insertNode(span)
+    }
+
+    // Trigger state save
+    const pageIndex = pageRefs.current.findIndex(ref => ref === pageEl)
+    if (pageIndex !== -1) {
+      const newPages = [...pageRefs.current.map(ref => ref ? ref.innerHTML : '')]
+      newPages[pageIndex] = pageEl.innerHTML
+      setPages(newPages)
+    }
   }
 
   function insertImage(url: string, name: string) {
@@ -1795,14 +1903,7 @@ export default function CertificateBuilderPage() {
     }
   }
 
-  // Dynamic placeholders list for inserting fields
-  const insertableFields = Array.from(new Set([
-    'اسم الطالب',
-    'البريد الإلكتروني',
-    ...formFields.map(f => f.label),
-    'رقم الإجازة',
-    'تاريخ الإصدار'
-  ]))
+
 
   const publicLink = `/c/${id}`
 
@@ -1914,7 +2015,8 @@ export default function CertificateBuilderPage() {
         .doc-page-container:focus-within { box-shadow:0 0 0 3px rgba(201,162,39,0.25), 0 14px 40px -12px rgba(22,36,63,0.28); }
         .doc-page { width:100%; height:100%; border:none; padding:12% 12%; outline:none; background:transparent; }
 
-        .field-chip, .image-chip { display:inline-block; font-family:'Tajawal',sans-serif; font-size:0.85em; padding:1px 9px; margin:0 2px; border:1.5px dashed #c9a227; border-radius:4px; background:rgba(201,162,39,0.08); color:#9c7a1f; font-weight:600; }
+        .field-chip, .image-chip { display:inline-block; font-family:'Tajawal',sans-serif; font-size:0.85em; padding:1px 9px; margin:0 2px; border:1.5px dashed #c9a227; border-radius:4px; background:rgba(201,162,39,0.08); color:#9c7a1f; font-weight:600; transition: all 0.15s ease; }
+        .field-chip:focus { outline: none; border-color: #b8923a; background: rgba(201, 162, 39, 0.15); }
         .image-chip { border-color:#b8923a; }
 
         .resp-table { width:100%; border-collapse:separate; border-spacing:0; }
@@ -2136,7 +2238,6 @@ export default function CertificateBuilderPage() {
                   saveSelection()
                   setFontMenuOpen((v) => !v)
                   setSizeMenuOpen(false)
-                  setFieldMenuOpen(false)
                   setImageMenuOpen(false)
                   setColorMenuOpen(false)
                 }}
@@ -2177,7 +2278,6 @@ export default function CertificateBuilderPage() {
                   saveSelection()
                   setSizeMenuOpen((v) => !v)
                   setFontMenuOpen(false)
-                  setFieldMenuOpen(false)
                   setImageMenuOpen(false)
                   setColorMenuOpen(false)
                 }}
@@ -2263,7 +2363,6 @@ export default function CertificateBuilderPage() {
                       setColorMenuOpen((v) => !v)
                       setFontMenuOpen(false)
                       setSizeMenuOpen(false)
-                      setFieldMenuOpen(false)
                       setImageMenuOpen(false)
                     }}
                     style={{
@@ -2379,35 +2478,17 @@ export default function CertificateBuilderPage() {
               <AlignLeft size={15} />
             </button>
             <div className="toolbar-divider" />
-            <div className="relative">
-              <button
-                type="button"
-                className="toolbar-dropdown-btn"
-                onClick={() => {
-                  saveSelection()
-                  setFieldMenuOpen((v) => !v)
-                  setImageMenuOpen(false)
-                  setFontMenuOpen(false)
-                  setSizeMenuOpen(false)
-                  setColorMenuOpen(false)
-                }}
-              >
-                <Type size={13} />
-                إدراج حقل
-              </button>
-              {fieldMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setFieldMenuOpen(false)} />
-                  <div className="dropdown-menu absolute right-0 top-9 z-20 w-48 py-1.5">
-                    {insertableFields.map((f) => (
-                      <button key={f} type="button" className="dropdown-item" onClick={() => insertField(f)}>
-                        {f}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            <button
+              type="button"
+              className="toolbar-dropdown-btn"
+              onClick={() => {
+                saveSelection()
+                insertField()
+              }}
+            >
+              <Type size={13} />
+              إدراج حقل
+            </button>
             <div className="relative">
               <button
                 type="button"
@@ -2415,7 +2496,6 @@ export default function CertificateBuilderPage() {
                 onClick={() => {
                   saveSelection()
                   setImageMenuOpen((v) => !v)
-                  setFieldMenuOpen(false)
                   setFontMenuOpen(false)
                   setSizeMenuOpen(false)
                   setColorMenuOpen(false)
@@ -2475,9 +2555,23 @@ export default function CertificateBuilderPage() {
                   suppressContentEditableWarning
                   dir="rtl"
                   onMouseUp={saveSelection}
-                  onKeyUp={saveSelection}
+                  onKeyUp={(e) => {
+                    saveSelection()
+                    if (e.key === '}') {
+                      checkAndConvertCurrentNode()
+                    }
+                  }}
                   onInput={() => handlePageInput(idx)}
                   onKeyDown={(e) => handlePageKeyDown(idx, e)}
+                  onBlur={(e) => {
+                    convertAllTextTagsToChips(e.currentTarget)
+                  }}
+                  onPaste={(e) => {
+                    const target = e.currentTarget
+                    setTimeout(() => {
+                      convertAllTextTagsToChips(target)
+                    }, 50)
+                  }}
                   className="doc-page font-amiri"
                   style={{
                     width: '100%',
